@@ -1,0 +1,21 @@
+{
+  "modulos": [
+    "bee.errorhandler.modulo.ErrorHandlerModule",
+    "bee.configuracion.modulo.ConfiguracionModule",
+    "bee.dataaccess.modulo.DataaccessModule",
+    "central.mail.cache.module.Cache"
+  ],
+  "logConfig": "./logback.xml",
+  "connectionType": "FILE",
+  "smtp": {
+    "host": "smtp.mi.com.co",
+    "port": "587"
+  },
+  "imap": {
+    "host": "imap.mi.com.co",
+    "port": "993"
+  },
+  "backend": {
+    "type": "imap"
+  }
+}
