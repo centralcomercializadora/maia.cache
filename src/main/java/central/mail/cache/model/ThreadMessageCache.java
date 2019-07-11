@@ -1,13 +1,13 @@
 package central.mail.cache.model;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class ThreadMessageCache<T> {
     private String messageId;
-    private List<T> messages = new ArrayList<>();
+    private Set<T> messages = new LinkedHashSet<>();
     private T gid;
+    private T mainMessageGid = null;
+    private Long mainMessageDate = 0l;
 
     public String getMessageId() {
         return messageId;
@@ -17,11 +17,11 @@ public class ThreadMessageCache<T> {
         this.messageId = messageId;
     }
 
-    public List<T> getMessages() {
+    public Set<T> getMessages() {
         return messages;
     }
 
-    public void setMessages(List<T> messages) {
+    public void setMessages(Set<T> messages) {
         this.messages = messages;
     }
 
@@ -31,5 +31,21 @@ public class ThreadMessageCache<T> {
 
     public void setGid(T gid) {
         this.gid = gid;
+    }
+
+    public T getMainMessageGid() {
+        return mainMessageGid;
+    }
+
+    public void setMainMessageGid(T mainMessageGid) {
+        this.mainMessageGid = mainMessageGid;
+    }
+
+    public Long getMainMessageDate() {
+        return mainMessageDate;
+    }
+
+    public void setMainMessageDate(Long mainMessageDate) {
+        this.mainMessageDate = mainMessageDate;
     }
 }

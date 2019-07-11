@@ -2,7 +2,6 @@ package central.mail.cache.model;
 
 public class MailboxThreadMessageCache<T> {
     private T gid;
-    private T mailboxId;
     private T mailboxGid;
 
     public T getGid() {

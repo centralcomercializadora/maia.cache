@@ -3,11 +3,10 @@ package central.mail.cache;
 
 import bee.configuracion.Configuracion;
 import bee.registry.Registry;
+import bee.result.Result;
 import bee.serviceregistry.Modules;
 import bee.session.ExecutionContext;
-import central.mail.cache.model.MailboxCache;
-import central.mail.cache.model.MailboxMessageCache;
-import central.mail.cache.model.MessageCache;
+import central.mail.cache.model.*;
 import central.mail.store.impl.business.StoreBusiness;
 import org.apache.james.mime4j.message.DefaultMessageBuilder;
 import org.apache.james.mime4j.stream.Field;
@@ -18,10 +17,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class CacheTest {
@@ -111,7 +107,8 @@ public class CacheTest {
 
         message.setGid(UUID.randomUUID());
 
-        facade.addMessage(mailbox.getId(), message, rc);
+        message.setMailboxGid(mailbox.getId());
+        facade.addMessage(message, rc);
 
         var res = (Iterator<MailboxMessageCache<UUID, UUID>>) facade.fetchMailboxMessagesInMailboxByName("inbox", rc).ok();
 
@@ -136,18 +133,24 @@ public class CacheTest {
         var mailbox4 = this.makeMailbox("inbox4");
         facade.addMailbox(mailbox4, rc);
 
-        var message = new MessageCache<UUID, UUID>();
-        message.setGid(UUID.randomUUID());
+        var message1 = new MessageCache<UUID, UUID>();
+        message1.setGid(UUID.randomUUID());
+        message1.setMailboxGid(mailbox1.getId());
 
-        facade.addMessage(mailbox1.getId(), message, rc);
-        facade.addMessage(mailbox2.getId(), message, rc);
+        var message2 = new MessageCache<UUID, UUID>();
+        message2.setGid(UUID.randomUUID());
+        message2.setMailboxGid(mailbox2.getId());
+
+        facade.addMessage(message1, rc);
+
+        facade.addMessage(message2, rc);
 
 
         var res = (Iterator<MailboxMessageCache<UUID, UUID>>) facade.fetchMailboxMessagesInMailboxByName("inbox", rc).ok();
 
         assert (res.hasNext());
 
-        assert (message.getGid().equals(res.next().getMessageGid()));
+        assert (message1.getGid().equals(res.next().getMessageGid()));
 
         assert (!res.hasNext());
 
@@ -156,7 +159,7 @@ public class CacheTest {
 
         assert (res.hasNext());
 
-        assert (message.getGid().equals(res.next().getMessageGid()));
+        assert (message2.getGid().equals(res.next().getMessageGid()));
 
         assert (!res.hasNext());
 
@@ -235,8 +238,13 @@ public class CacheTest {
                     }
                 }
 
+                if (message.getMessageDate() == null) {
+                    message.setMessageDate(new Date().getTime());
+                }
 
-                facade.addMessage(mailbox1.getId(), message, rc);
+
+                message.setMailboxGid(mailbox1.getId());
+                facade.addMessage(message, rc);
 
 
                 long total = rt.totalMemory();
@@ -275,8 +283,368 @@ public class CacheTest {
 
     @Test
     public void selectMailboxWithMails() throws Exception {
-        this.loadMessages();
+        this.recoverUserCache();
+        var i = 1;
+        long total = System.currentTimeMillis();
+        while (i < 1000) {
+            i++;
+            long now = System.currentTimeMillis();
+            facade.selectMailbox("inbox", rc);
+            System.out.println("en: " + (System.currentTimeMillis() - now) + "ms");
+        }
+
+        System.out.println("total en: " + (System.currentTimeMillis() - total) + "ms");
+
+    }
+
+    @Test
+    public void selectMailboxWithMailsOrdered() throws Exception {
+        this.recoverUserCache();
+        var i = 1;
+        long total = System.currentTimeMillis();
         facade.selectMailbox("inbox", rc);
     }
 
+    @Test
+    public void releaseUserCache() throws Exception {
+        this.loadMessages();
+        facade.releaseUserCache(rc);
+    }
+
+    @Test
+    public void recoverUserCache() throws Exception {
+        facade.recoverUserCache(rc);
+    }
+
+    /**
+     * Tres mensajes sin relacion
+     *
+     * @throws Exception
+     */
+
+    @Test
+    public void threadsTestCase1() throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var m1 = new MessageCache<UUID, UUID>();
+        m1.setMailboxGid(mailbox1.getId());
+        m1.setGid(UUID.randomUUID());
+        m1.setMessageId("m1");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = new MessageCache<UUID, UUID>();
+        m2.setMailboxGid(mailbox1.getId());
+        m2.setGid(UUID.randomUUID());
+        m2.setMessageId("m2");
+        m2.setMessageDate(System.currentTimeMillis());
+
+        var m3 = new MessageCache<UUID, UUID>();
+        m3.setMailboxGid(mailbox1.getId());
+        m3.setGid(UUID.randomUUID());
+        m3.setMessageId("m3");
+        m3.setMessageDate(System.currentTimeMillis());
+
+
+        facade.addMessage(m1, rc);
+        facade.addMessage(m2, rc);
+        facade.addMessage(m3, rc);
+        facade.processThreads(rc);
+
+        var threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 3);
+
+    }
+
+
+    /**
+     * Dos mensajes, un solo hilo, el mensaje 2 tiene en inreplyto al mensaje 1
+     *
+     * @throws Exception
+     */
+    @Test
+    public void threadsTestCase2() throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var m1 = new MessageCache<UUID, UUID>();
+        m1.setMailboxGid(mailbox1.getId());
+        m1.setGid(UUID.randomUUID());
+        m1.setMessageId("m1");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = new MessageCache<UUID, UUID>();
+        m2.setMailboxGid(mailbox1.getId());
+        m2.setGid(UUID.randomUUID());
+        m2.setMessageId("m2");
+        m2.setInReplyTo("m1");
+        m2.setMessageDate(System.currentTimeMillis());
+
+        facade.addMessage(m1, rc);
+        facade.addMessage(m2, rc);
+        facade.processThreads(rc);
+
+        var threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 1);
+
+    }
+
+    /**
+     * Tres mensajes, dos hilos, el mensaje 2 tiene en inreplyto al mensaje 1, mensaje 3 indpendiente
+     *
+     * @throws Exception
+     */
+    @Test
+    public void threadsTestCase3() throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var m1 = new MessageCache<UUID, UUID>();
+        m1.setMailboxGid(mailbox1.getId());
+        m1.setGid(UUID.randomUUID());
+        m1.setMessageId("m1");
+        m1.setMessageDate(1l);
+
+        var m2 = new MessageCache<UUID, UUID>();
+        m2.setMailboxGid(mailbox1.getId());
+        m2.setGid(UUID.randomUUID());
+        m2.setMessageId("m2");
+        m2.setInReplyTo("m1");
+        m2.setMessageDate(2l);
+
+        var m3 = new MessageCache<UUID, UUID>();
+        m3.setMailboxGid(mailbox1.getId());
+        m3.setGid(UUID.randomUUID());
+        m3.setMessageId("m3");
+        m3.setMessageDate(3l);
+
+
+        facade.addMessage(m1, rc);
+        facade.addMessage(m2, rc);
+        facade.addMessage(m3, rc);
+        facade.processThreads(rc);
+
+        var threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 2);
+        var result = ((SelectedMailboxCache<UUID>) threads.ok());
+
+        var ot1 = result.getFirst();
+        var ot2 = result.getThreadsByGid().get(ot1.getNext());
+
+        var t1 = (Result<ThreadMessageCache<UUID>>) facade.fetchThreadMessageByGid(ot1.getThreadGid(), rc);
+        assert (!t1.isError() && t1.ok() != null);
+
+        var t2 = (Result<ThreadMessageCache<UUID>>) facade.fetchThreadMessageByGid(ot2.getThreadGid(), rc);
+        assert (!t2.isError() && t2.ok() != null);
+
+        if ((t1.ok()).getMessages().size() > 1) {
+            //debe tener los gid de m1 y m2
+            assert (t1.ok().getMessages().contains(m1.getGid()));
+            assert (t1.ok().getMessages().contains(m2.getGid()));
+            assert (t2.ok().getMessages().contains(m3.getGid()));
+        } else {
+            assert (t2.ok().getMessages().contains(m1.getGid()));
+            assert (t2.ok().getMessages().contains(m2.getGid()));
+            assert (t1.ok().getMessages().contains(m3.getGid()));
+        }
+
+    }
+
+
+    /**
+     * Dos mensajes, un solo hilo, el mensaje 1 tiene en inreplyto al mensaje 2
+     *
+     * @throws Exception
+     */
+    @Test
+    public void threadsTestCase4() throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var m1 = new MessageCache<UUID, UUID>();
+        m1.setMailboxGid(mailbox1.getId());
+        m1.setGid(UUID.randomUUID());
+        m1.setMessageId("m1");
+        m1.setInReplyTo("m2");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = new MessageCache<UUID, UUID>();
+        m2.setMailboxGid(mailbox1.getId());
+        m2.setGid(UUID.randomUUID());
+        m2.setMessageId("m2");
+        m2.setMessageDate(System.currentTimeMillis());
+
+        facade.addMessage(m1, rc);
+        facade.addMessage(m2, rc);
+        facade.processThreads(rc);
+
+        var threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size()== 1);
+
+    }
+
+    /**
+     * Tres mensajes un solo hilo, el mensaje 1 tiene referencia a 2, el mensaje 2 tiene referencia a 3
+     *
+     * @throws Exception
+     */
+
+    @Test
+    public void threadsTestCase5() throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var m1 = new MessageCache<UUID, UUID>();
+        m1.setMailboxGid(mailbox1.getId());
+        m1.setGid(UUID.randomUUID());
+        m1.setMessageId("m1");
+        m1.setInReplyTo("m2");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = new MessageCache<UUID, UUID>();
+        m2.setMailboxGid(mailbox1.getId());
+        m2.setGid(UUID.randomUUID());
+        m2.setMessageId("m2");
+        m2.setInReplyTo("m3");
+        m2.setMessageDate(System.currentTimeMillis());
+
+        var m3 = new MessageCache<UUID, UUID>();
+        m3.setMailboxGid(mailbox1.getId());
+        m3.setGid(UUID.randomUUID());
+        m3.setMessageId("m3");
+        m3.setMessageDate(System.currentTimeMillis());
+
+
+        facade.addMessage(m1, rc);
+        facade.addMessage(m2, rc);
+        facade.addMessage(m3, rc);
+        facade.processThreads(rc);
+
+        var threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 1);
+
+    }
+
+    /**
+     * Tres mensajes un solo hilo, el mensaje 1 tiene referencia a 2, el mensaje 3 tiene referencia a 2
+     *
+     * @throws Exception
+     */
+
+    @Test
+    public void threadsTestCase6() throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var m1 = new MessageCache<UUID, UUID>();
+        m1.setMailboxGid(mailbox1.getId());
+        m1.setGid(UUID.randomUUID());
+        m1.setMessageId("m1");
+        m1.setInReplyTo("m2");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = new MessageCache<UUID, UUID>();
+        m2.setMailboxGid(mailbox1.getId());
+        m2.setGid(UUID.randomUUID());
+        m2.setMessageId("m2");
+        m2.setMessageDate(System.currentTimeMillis());
+
+        var m3 = new MessageCache<UUID, UUID>();
+        m3.setMailboxGid(mailbox1.getId());
+        m3.setGid(UUID.randomUUID());
+        m3.setMessageId("m3");
+        m3.setInReplyTo("m2");
+        m3.setMessageDate(System.currentTimeMillis());
+
+
+        facade.addMessage(m1, rc);
+        facade.addMessage(m2, rc);
+        facade.addMessage(m3, rc);
+        facade.processThreads(rc);
+
+        var threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 1);
+
+    }
+    /**
+     * Tres mensajes dos hilos, el mensaje 1 esta solo, el mensaje 2 esta solo , el mensaje 3 tiene referencia a 2
+     *
+     * @throws Exception
+     */
+    @Test
+    public void threadsTestCase7() throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var m1 = new MessageCache<UUID, UUID>();
+        m1.setMailboxGid(mailbox1.getId());
+        m1.setGid(UUID.randomUUID());
+        m1.setMessageId("m1");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = new MessageCache<UUID, UUID>();
+        m2.setMailboxGid(mailbox1.getId());
+        m2.setGid(UUID.randomUUID());
+        m2.setMessageId("m2");
+        m2.setMessageDate(System.currentTimeMillis());
+
+        var m3 = new MessageCache<UUID, UUID>();
+        m3.setMailboxGid(mailbox1.getId());
+        m3.setGid(UUID.randomUUID());
+        m3.setMessageId("m3");
+        m3.setInReplyTo("m2");
+        m3.setMessageDate(System.currentTimeMillis());
+
+
+        facade.addMessage(m1, rc);
+        facade.addMessage(m2, rc);
+        facade.addMessage(m3, rc);
+        facade.processThreads(rc);
+
+        var threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 2);
+
+    }
+
+
+
+    @Test
+    public void threadsTestCase8() throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var m1 = new MessageCache<UUID, UUID>();
+        m1.setMailboxGid(mailbox1.getId());
+        m1.setGid(UUID.randomUUID());
+        m1.setMessageId("m1");
+        m1.setInReplyTo("noexiste");
+        m1.setReferences("noexiste");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = new MessageCache<UUID, UUID>();
+        m2.setMailboxGid(mailbox1.getId());
+        m2.setGid(UUID.randomUUID());
+        m2.setMessageId("m2");
+        m2.setInReplyTo("noexiste");
+        m2.setReferences("noexiste");
+        m2.setMessageDate(System.currentTimeMillis());
+
+        var m3 = new MessageCache<UUID, UUID>();
+        m3.setMailboxGid(mailbox1.getId());
+        m3.setGid(UUID.randomUUID());
+        m3.setMessageId("m3");
+        m3.setInReplyTo("m2");
+        m3.setReferences("m1 m2 noexiste");
+        m3.setMessageDate(System.currentTimeMillis());
+
+
+        facade.addMessage(m1, rc);
+        facade.addMessage(m2, rc);
+        facade.addMessage(m3, rc);
+        facade.processThreads(rc);
+
+        var threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 1);
+
+    }
 }

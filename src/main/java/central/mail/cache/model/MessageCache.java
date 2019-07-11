@@ -1,10 +1,11 @@
 package central.mail.cache.model;
 
 import javax.mail.Flags;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MessageCache<K, T> {
+public class MessageCache<K, T> implements Serializable {
     public final static long SEEN = (long) 0b000000000001;
     public final static long ANSWERED = (long) 0b000000000010;
     public final static long FLAGGED = (long) 0b000000000100;
@@ -14,32 +15,23 @@ public class MessageCache<K, T> {
     public final static long UNSEEN = (long) 0b000001000000;
     public final static long UNANSWERED = (long) 0b000010000000;
 
-    private List<MailboxMessageCache<K, T>> mailboxMessages = new ArrayList<>();
     private K gid;
+    private T mailboxGid;
     private Long mailboxUidValidity;
     private Long uid;
     private Long flags = 0l;
     private String[] userFlags;
+    private Long internalDate;
     private String messageId;
     private String inReplyTo;
     private String references;
     private Long messageDate;
-    private Long internalDate;
-    private MessageGID next;
-    private MessageGID prev;
     private String from;
     private String subject;
     private String to;
     private String cc;
     private String bcc;
 
-    public List<MailboxMessageCache<K, T>> getMailboxMessages() {
-        return mailboxMessages;
-    }
-
-    public void setMailboxMessages(List<MailboxMessageCache<K, T>> mailboxMessages) {
-        this.mailboxMessages = mailboxMessages;
-    }
 
     public Long getUid() {
         return uid;
@@ -135,22 +127,6 @@ public class MessageCache<K, T> {
         this.messageDate = messageDate;
     }
 
-    public MessageGID getNext() {
-        return next;
-    }
-
-    public void setNext(MessageGID next) {
-        this.next = next;
-    }
-
-    public MessageGID getPrev() {
-        return prev;
-    }
-
-    public void setPrev(MessageGID prev) {
-        this.prev = prev;
-    }
-
     public Long getMailboxUidValidity() {
         return mailboxUidValidity;
     }
@@ -205,5 +181,13 @@ public class MessageCache<K, T> {
 
     public String getBcc() {
         return bcc;
+    }
+
+    public T getMailboxGid() {
+        return mailboxGid;
+    }
+
+    public void setMailboxGid(T mailboxGid) {
+        this.mailboxGid = mailboxGid;
     }
 }

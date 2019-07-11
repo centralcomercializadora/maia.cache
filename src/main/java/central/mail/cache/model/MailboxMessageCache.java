@@ -1,11 +1,11 @@
 package central.mail.cache.model;
 
+import java.io.Serializable;
 import java.util.UUID;
 
-public class MailboxMessageCache<K, T> {
+public class MailboxMessageCache<K, T> implements Serializable {
     private T messageGid;
     private T mailboxGid;
-    private String mailboxName;
     private Long uid;
     private boolean expunged;
 
@@ -24,14 +24,6 @@ public class MailboxMessageCache<K, T> {
 
     public void setMailboxGid(T mailboxGid) {
         this.mailboxGid = mailboxGid;
-    }
-
-    public String getMailboxName() {
-        return mailboxName;
-    }
-
-    public void setMailboxName(String mailboxName) {
-        this.mailboxName = mailboxName;
     }
 
     public Long getUid() {

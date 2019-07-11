@@ -3,9 +3,7 @@ package central.mail.cache;
 import bee.error.BusinessException;
 import bee.result.Result;
 import bee.session.ExecutionContext;
-import central.mail.cache.model.MailboxCache;
-import central.mail.cache.model.MailboxMessageCache;
-import central.mail.cache.model.MessageCache;
+import central.mail.cache.model.*;
 
 import java.util.Iterator;
 import java.util.List;
@@ -16,7 +14,7 @@ public interface ICacheFacade {
 
     void addMailbox(MailboxCache mailbox, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
-    void addMessage(UUID mailboxId, MessageCache<UUID, UUID> message, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+    void addMessage(MessageCache<UUID, UUID> message, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
     Result<MailboxCache<UUID>> fetchMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
@@ -26,5 +24,13 @@ public interface ICacheFacade {
 
     Result<Integer> getMessagesCount(ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
-    Result<MailboxCache<UUID>> selectMailbox(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+    Result<SelectedMailboxCache<UUID>> selectMailbox(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
+    void releaseUserCache(ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
+    void recoverUserCache(ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
+    void processThreads(ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
+    Result<ThreadMessageCache<UUID>> fetchThreadMessageByGid(UUID gid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 }

@@ -1,8 +1,9 @@
 package central.mail.cache.model;
 
+import java.io.Serializable;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class MailboxCache<T> {
+public class MailboxCache<T> implements Serializable {
     private T id;
     private String name;
     private long uidValidity;
