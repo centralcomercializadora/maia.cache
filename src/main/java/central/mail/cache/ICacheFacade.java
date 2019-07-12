@@ -5,6 +5,7 @@ import bee.result.Result;
 import bee.session.ExecutionContext;
 import central.mail.cache.model.*;
 
+import javax.mail.Message;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
@@ -26,6 +27,8 @@ public interface ICacheFacade {
 
     Result<SelectedMailboxCache<UUID>> selectMailbox(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
+    Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
     void releaseUserCache(ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
     void recoverUserCache(ExecutionContext<UUID, UUID> ec) throws BusinessException;
@@ -33,4 +36,7 @@ public interface ICacheFacade {
     void processThreads(ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
     Result<ThreadMessageCache<UUID>> fetchThreadMessageByGid(UUID gid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
+    Result<MessageCache<UUID,UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
 }

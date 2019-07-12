@@ -8,6 +8,7 @@ public class ThreadMessageCache<T> {
     private T gid;
     private T mainMessageGid = null;
     private Long mainMessageDate = 0l;
+    private Long flags = 0l;
 
     public String getMessageId() {
         return messageId;
@@ -47,5 +48,13 @@ public class ThreadMessageCache<T> {
 
     public void setMainMessageDate(Long mainMessageDate) {
         this.mainMessageDate = mainMessageDate;
+    }
+
+    public Long getFlags() {
+        return flags;
+    }
+
+    public void setFlags(Long flags) {
+        this.flags = flags;
     }
 }

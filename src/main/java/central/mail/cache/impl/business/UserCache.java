@@ -50,7 +50,6 @@ public class UserCache {
         }
     };
 
-
     public static final Attribute<MessageCache<UUID, UUID>, UUID> MESSAGE_ID = new SimpleAttribute<>("messageId") {
         public UUID getValue(MessageCache<UUID, UUID> ob, QueryOptions queryOptions) {
             return ob.getGid();
@@ -96,9 +95,11 @@ public class UserCache {
     private IndexedCollection<ThreadMessageCache<UUID>> threads = new ConcurrentIndexedCollection<>();
     private IndexedCollection<MailboxThreadMessageCache<UUID>> mailboxThreads = new ConcurrentIndexedCollection<>();
     private IndexedCollection<ThreadMessageIdCache<UUID>> messageIdThreads = new ConcurrentIndexedCollection<>();
+    private Map<UUID, UUID> threadByMessageGid = new ConcurrentHashMap<>();
 
     private Long lastRefresh = null;
     private UUID mailboxGuidSelected;
+
 
     public UserCache() {
 
@@ -123,6 +124,10 @@ public class UserCache {
     }
 
     public synchronized void add(MessageCache<UUID, UUID> message) throws BusinessException {
+        add(message, true);
+    }
+
+    public synchronized void add(MessageCache<UUID, UUID> message, boolean syncThreads) throws BusinessException {
         synchronized (sync) {
             UUID mailboxId = message.getMailboxGid();
 
@@ -143,6 +148,11 @@ public class UserCache {
             mailboxMessage.setMailboxGid(mailbox.getId());
             this.mailboxMessages.add(mailboxMessage);
         }
+    }
+
+
+    public synchronized void addNoSync(MessageCache<UUID, UUID> message) throws BusinessException {
+        add(message, false);
     }
 
 
@@ -241,6 +251,9 @@ public class UserCache {
             }
 
             thread.getMessages().add(message.getGid());
+            threadByMessageGid.put(message.getGid(), thread.getGid());
+
+            thread.setFlags(thread.getFlags() | message.getFlags());
 
 
             // las referencias y el messageid debe apuntar al thread
@@ -255,10 +268,10 @@ public class UserCache {
 
             }
             if (this.fetchThreadMessageIdByMessageId(message.getMessageId()) == null) {
-            var threadMessageId = new ThreadMessageIdCache<UUID>();
-            threadMessageId.setMessageId(message.getMessageId());
-            threadMessageId.setThreadGid(thread.getGid());
-            //solo lo agrego si no esta
+                var threadMessageId = new ThreadMessageIdCache<UUID>();
+                threadMessageId.setMessageId(message.getMessageId());
+                threadMessageId.setThreadGid(thread.getGid());
+                //solo lo agrego si no esta
 
                 this.messageIdThreads.add(threadMessageId);
             }
@@ -287,9 +300,10 @@ public class UserCache {
             }
 
             for (MessageCache<UUID, UUID> message : store.getMessages()) {
-                this.add(message);
+                this.addNoSync(message);
             }
             this.lastRefresh = store.getLastRefresh();
+            this.processThreads();
         } catch (BusinessException e) {
             e.printStackTrace();
             throw new IOException(e.getMessage());
@@ -438,16 +452,16 @@ public class UserCache {
     }
 
 
-    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name) throws BusinessException {
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType) throws BusinessException {
         // consultar el mailbox por nombre
         var mailbox = this.getMailboxByName(name);
         if (mailbox.isError()) {
             return error(mailbox.getErrores());
         }
-        return this.selectMailbox(mailbox.ok());
+        return this.selectMailbox(mailbox.ok(), sort, sortType);
     }
 
-    public Result<SelectedMailboxCache<UUID>> selectMailbox(MailboxCache<UUID> mailbox) {
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(MailboxCache<UUID> mailbox, Sort sort, SortType sortType) {
         //saber si debo volver a procesar todo el cache
 
 
@@ -469,11 +483,34 @@ public class UserCache {
                     if (!gids.contains(thread.getGid())) {
                         gids.add(thread.getGid());
 
+                        var message = this.getMessageById(thread.getMainMessageGid());
+
                         var orderedThread = new OrderedThreadCache();
 
 
                         // depende del ordenamiento que quira darle
-                        orderedThread.setOrderProperty(thread.getMainMessageDate());
+
+
+                        switch (sort) {
+                            case DATE:
+                                orderedThread.setOrderProperty(message.getMessageDate());
+                                if (orderedThread.getOrderProperty() == null) {
+                                    orderedThread.setOrderProperty(0l);
+                                }
+                                break;
+                            case FROM:
+                                orderedThread.setOrderProperty(message.getFrom());
+                                if (orderedThread.getOrderProperty() == null) {
+                                    orderedThread.setOrderProperty("");
+                                }
+                                break;
+                            case SUBJECT:
+                                orderedThread.setOrderProperty(message.getSubject());
+                                if (orderedThread.getOrderProperty() == null) {
+                                    orderedThread.setOrderProperty("");
+                                }
+                                break;
+                        }
 
 
                         orderedThread.setMessageGid(thread.getMainMessageGid());
@@ -485,23 +522,29 @@ public class UserCache {
         }
 
         // ordeno los threads
-        Collections.sort(threads, (o, r) -> -1 * o.getOrderProperty().compareTo(r.getOrderProperty()));
+        var sortAux = (sortType == SortType.DESC) ? -1 : 1;
+        Collections.sort(threads, (o, r) -> sortAux * o.getOrderProperty().compareTo(r.getOrderProperty()));
 
         OrderedThreadCache<UUID> first = null;
-        Map<UUID,OrderedThreadCache<UUID>> threadsByGid = new ConcurrentHashMap<>();
+        Map<UUID, OrderedThreadCache<UUID>> threadsByGid = new ConcurrentHashMap<>();
 
-        for (int i = 0; i < threads.size() - 1; i += 2) {
+        var size = threads.size();
+
+        for (int i = 0; i < size; i++) {
             var current = threads.get(i);
-            var next = threads.get(i + 1);
-            current.setNext(next.getThreadGid());
-            next.setPrev(current.getThreadGid());
 
-            if (i==0){
+            if (i == 0) {
                 first = current;
             }
 
-            threadsByGid.put(current.getThreadGid(),current);
-            threadsByGid.put(next.getThreadGid(),next);
+            threadsByGid.put(current.getThreadGid(), current);
+
+            if ((i + 1) < threads.size()) {
+                var next = threads.get(i + 1);
+                current.setNext(next.getThreadGid());
+                next.setPrev(current.getThreadGid());
+                threadsByGid.put(next.getThreadGid(), next);
+            }
         }
 
         System.out.println("threads all: " + this.threads.size());
@@ -509,4 +552,5 @@ public class UserCache {
         System.out.println("mailbox threads: " + threads.size());
         return ok(new SelectedMailboxCache<>(mailbox, first, threadsByGid));
     }
+
 }

@@ -4,11 +4,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class SelectedMailboxCache<T> {
     private MailboxCache<T> mailbox;
     OrderedThreadCache<UUID> first = null;
-    Map<UUID,OrderedThreadCache<UUID>> threadsByGid;
+    Map<UUID, OrderedThreadCache<UUID>> threadsByGid;
+    private AtomicLong total = new AtomicLong();
+    private AtomicLong unseen = new AtomicLong();
 
     public SelectedMailboxCache(MailboxCache<T> mailbox, OrderedThreadCache<UUID> first, Map<UUID, OrderedThreadCache<UUID>> threadsByGid) {
         this.mailbox = mailbox;
@@ -38,5 +41,21 @@ public class SelectedMailboxCache<T> {
 
     public void setThreadsByGid(Map<UUID, OrderedThreadCache<UUID>> threadsByGid) {
         this.threadsByGid = threadsByGid;
+    }
+
+    public AtomicLong getTotal() {
+        return total;
+    }
+
+    public void setTotal(AtomicLong total) {
+        this.total = total;
+    }
+
+    public AtomicLong getUnseen() {
+        return unseen;
+    }
+
+    public void setUnseen(AtomicLong unseen) {
+        this.unseen = unseen;
     }
 }

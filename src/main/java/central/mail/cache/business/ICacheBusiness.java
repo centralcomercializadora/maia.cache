@@ -30,10 +30,13 @@ public interface ICacheBusiness {
 
     Result<SelectedMailboxCache<UUID>> selectMailbox(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
+    Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
     Result<ThreadMessageCache<UUID>> fetchThreadMessageByGid(UUID gid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
     void releaseUserCache(ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
     void recoverUserCache(ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
+    Result<MessageCache<UUID, UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 }

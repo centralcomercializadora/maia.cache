@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
 import static bee.result.Result.ok;
+import static central.mail.cache.model.SortType.ASC;
 
 
 @Singleton
@@ -216,7 +217,13 @@ public class CacheBusiness implements ICacheBusiness {
     @Override
     public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
-        return userCache.selectMailbox(name);
+        return userCache.selectMailbox(name, Sort.DATE, ASC);
+    }
+
+    @Override
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        return userCache.selectMailbox(name, sort, sortType);
     }
 
     @Override
@@ -322,6 +329,12 @@ public class CacheBusiness implements ICacheBusiness {
             }
         }
         //
+    }
+
+    @Override
+    public Result<MessageCache<UUID, UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        return ok(userCache.getMessageById(messageGid));
     }
 }
 

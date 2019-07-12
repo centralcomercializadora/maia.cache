@@ -64,6 +64,12 @@ public class CacheFacade implements ICacheFacade {
     }
 
     @Override
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.selectMailbox(name, sort, sortType, ec);
+    }
+
+    @Override
     public void releaseUserCache(ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var business = Registry.getInstance(ICacheBusiness.class);
         business.releaseUserCache(ec);
@@ -85,5 +91,11 @@ public class CacheFacade implements ICacheFacade {
     public Result<ThreadMessageCache<UUID>> fetchThreadMessageByGid(UUID gid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var business = Registry.getInstance(ICacheBusiness.class);
         return business.fetchThreadMessageByGid(gid, ec);
+    }
+
+    @Override
+    public Result<MessageCache<UUID,UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException{
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.fetchMessageByGid(messageGid, ec);
     }
 }
