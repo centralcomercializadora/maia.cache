@@ -17,9 +17,11 @@ public interface ICacheFacade {
 
     void addMessage(MessageCache<UUID, UUID> message, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
+    void addMessageNoSync(MessageCache<UUID, UUID> message, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
     Result<MailboxCache<UUID>> fetchMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
-    public Result<Iterator<MailboxMessageCache<UUID, UUID>>> fetchMailboxMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+    public Result<Iterator<MessageCache<UUID, UUID>>> fetchMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
     Result<Integer> getThreadsCount(ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
@@ -37,6 +39,6 @@ public interface ICacheFacade {
 
     Result<ThreadMessageCache<UUID>> fetchThreadMessageByGid(UUID gid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
-    Result<MessageCache<UUID,UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+    Result<MessageCache<UUID, UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
 }

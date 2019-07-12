@@ -22,6 +22,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static bee.result.Result.ok;
 import static central.mail.cache.model.SortType.ASC;
+import static central.mail.cache.model.SortType.DESC;
 
 
 @Singleton
@@ -190,6 +191,12 @@ public class CacheBusiness implements ICacheBusiness {
     }
 
     @Override
+    public void addMessageNoSync(MessageCache<UUID, UUID> message, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        userCache.addNoSync(message);
+    }
+
+    @Override
     public synchronized void processThreads(ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         userCache.processThreads();
@@ -197,9 +204,9 @@ public class CacheBusiness implements ICacheBusiness {
 
 
     @Override
-    public Result<Iterator<MailboxMessageCache<UUID, UUID>>> fetchMailboxMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<Iterator<MessageCache<UUID, UUID>>> fetchMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
-        return userCache.fetchMailboxMessagesInMailboxByName(name, ec);
+        return userCache.fetchMessagesInMailboxByName(name, ec);
     }
 
     @Override
@@ -217,7 +224,7 @@ public class CacheBusiness implements ICacheBusiness {
     @Override
     public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
-        return userCache.selectMailbox(name, Sort.DATE, ASC);
+        return userCache.selectMailbox(name, Sort.DATE, DESC);
     }
 
     @Override

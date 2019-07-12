@@ -9,6 +9,7 @@ public class ThreadMessageCache<T> {
     private T mainMessageGid = null;
     private Long mainMessageDate = 0l;
     private Long flags = 0l;
+    private boolean expunged = true;
 
     public String getMessageId() {
         return messageId;
@@ -56,5 +57,13 @@ public class ThreadMessageCache<T> {
 
     public void setFlags(Long flags) {
         this.flags = flags;
+    }
+
+    public boolean isExpunged() {
+        return expunged;
+    }
+
+    public void setExpunged(boolean expunged) {
+        this.expunged = expunged;
     }
 }

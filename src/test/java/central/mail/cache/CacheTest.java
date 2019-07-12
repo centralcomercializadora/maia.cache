@@ -31,6 +31,35 @@ public class CacheTest {
             .setMaxLineLen(-1)
             .build();
 
+    MessageCache<UUID, UUID> buildMessage(UUID mailboxGid, String messageId) {
+        return buildMessage(mailboxGid, messageId, null, (long) new Random().nextInt(), System.currentTimeMillis());
+    }
+
+    MessageCache<UUID, UUID> buildMessage(UUID mailboxGid, String messageId, Long date) {
+        return buildMessage(mailboxGid, messageId, null, (long) new Random().nextInt(), date);
+    }
+
+    MessageCache<UUID, UUID> buildMessage(UUID mailboxGid, String messageId, String references) {
+        return buildMessage(mailboxGid, messageId, references, (long) new Random().nextInt(), System.currentTimeMillis());
+    }
+
+    MessageCache<UUID, UUID> buildMessage(UUID mailboxGid, String messageId, String references, Long date) {
+        return buildMessage(mailboxGid, messageId, references, (long) new Random().nextInt(), date);
+    }
+
+
+    MessageCache<UUID, UUID> buildMessage(UUID mailboxGid, String messageId, String references, Long uid, Long date) {
+        var m1 = new MessageCache<UUID, UUID>();
+        m1.setUid(uid);
+        m1.setMailboxUidValidity(System.currentTimeMillis());
+        m1.setMailboxGid(mailboxGid);
+        m1.setGid(UUID.randomUUID());
+        m1.setMessageId(messageId);
+        m1.setMessageDate(date);
+        m1.setReferences(references);
+        return m1;
+    }
+
     @BeforeEach
     public void init() {
         // load
@@ -99,8 +128,9 @@ public class CacheTest {
 
     @Test
     public void addMessage() throws Exception {
-        var message = new MessageCache<UUID, UUID>();
+
         var mailbox = this.makeMailbox("inbox");
+        var message = buildMessage(mailbox.getId(), "m1");
 
         facade.addMailbox(mailbox, rc);
 
@@ -109,11 +139,11 @@ public class CacheTest {
         message.setMailboxGid(mailbox.getId());
         facade.addMessage(message, rc);
 
-        var res = (Iterator<MailboxMessageCache<UUID, UUID>>) facade.fetchMailboxMessagesInMailboxByName("inbox", rc).ok();
+        var res = (Iterator<MessageCache<UUID, UUID>>) facade.fetchMessagesInMailboxByName("inbox", rc).ok();
 
         assert (res.hasNext());
 
-        assert (message.getGid().equals(res.next().getMessageGid()));
+        assert (message.getGid().equals(res.next().getGid()));
 
         assert (!res.hasNext());
 
@@ -132,40 +162,36 @@ public class CacheTest {
         var mailbox4 = this.makeMailbox("inbox4");
         facade.addMailbox(mailbox4, rc);
 
-        var message1 = new MessageCache<UUID, UUID>();
-        message1.setGid(UUID.randomUUID());
-        message1.setMailboxGid(mailbox1.getId());
+        var message1 = buildMessage(mailbox1.getId(), "m1");
 
-        var message2 = new MessageCache<UUID, UUID>();
-        message2.setGid(UUID.randomUUID());
-        message2.setMailboxGid(mailbox2.getId());
+        var message2 = buildMessage(mailbox2.getId(), "m2");
 
         facade.addMessage(message1, rc);
 
         facade.addMessage(message2, rc);
 
 
-        var res = (Iterator<MailboxMessageCache<UUID, UUID>>) facade.fetchMailboxMessagesInMailboxByName("inbox", rc).ok();
+        var res = (Iterator<MessageCache<UUID, UUID>>) facade.fetchMessagesInMailboxByName("inbox", rc).ok();
 
         assert (res.hasNext());
 
-        assert (message1.getGid().equals(res.next().getMessageGid()));
+        assert (message1.getGid().equals(res.next().getGid()));
 
         assert (!res.hasNext());
 
 
-        res = (Iterator<MailboxMessageCache<UUID, UUID>>) facade.fetchMailboxMessagesInMailboxByName("inbox2", rc).ok();
+        res = (Iterator<MessageCache<UUID, UUID>>) facade.fetchMessagesInMailboxByName("inbox2", rc).ok();
 
         assert (res.hasNext());
 
-        assert (message2.getGid().equals(res.next().getMessageGid()));
+        assert (message2.getGid().equals(res.next().getGid()));
 
         assert (!res.hasNext());
 
 
-        assert (facade.fetchMailboxMessagesInMailboxByName("inbox3", rc).isError());
+        assert (facade.fetchMessagesInMailboxByName("inbox3", rc).isError());
 
-        res = (Iterator<MailboxMessageCache<UUID, UUID>>) facade.fetchMailboxMessagesInMailboxByName("inbox4", rc).ok();
+        res = (Iterator<MessageCache<UUID, UUID>>) facade.fetchMessagesInMailboxByName("inbox4", rc).ok();
 
         assert (!res.hasNext());
 
@@ -320,35 +346,37 @@ public class CacheTest {
      *
      * @throws Exception
      */
+    @Test
+    public void threadsTestCase1OnLine() throws Exception {
+        this.threadsTestCase1(true);
+    }
 
     @Test
-    public void threadsTestCase1() throws Exception {
+    public void threadsTestCase1OffLine() throws Exception {
+        this.threadsTestCase1(false);
+    }
+
+
+    public void threadsTestCase1(boolean onLine) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
-        m1.setMessageDate(System.currentTimeMillis());
-
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
-        m2.setMessageDate(System.currentTimeMillis());
-
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
-        m3.setMessageDate(System.currentTimeMillis());
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        var m2 = buildMessage(mailbox1.getId(), "m2");
+        var m3 = buildMessage(mailbox1.getId(), "m3");
 
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
+        if (onLine) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
+
 
         var threads = facade.selectMailbox("inbox", rc);
         assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 3);
@@ -362,26 +390,33 @@ public class CacheTest {
      * @throws Exception
      */
     @Test
-    public void threadsTestCase2() throws Exception {
+    public void threadsTestCase2Online() throws Exception {
+        threadsTestCase2(true);
+    }
+
+    @Test
+    public void threadsTestCase2Offline() throws Exception {
+        threadsTestCase2(false);
+    }
+
+
+    public void threadsTestCase2(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
-        m1.setMessageDate(System.currentTimeMillis());
+        var m1 = buildMessage(mailbox1.getId(), "m1");
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
-        m2.setInReplyTo("m1");
-        m2.setMessageDate(System.currentTimeMillis());
+        var m2 = buildMessage(mailbox1.getId(), "m2", "m1");
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
 
         var threads = facade.selectMailbox("inbox", rc);
         assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 1);
@@ -394,34 +429,37 @@ public class CacheTest {
      * @throws Exception
      */
     @Test
-    public void threadsTestCase3() throws Exception {
+    public void threadsTestCase3Online() throws Exception {
+        threadsTestCase3(true);
+    }
+
+    @Test
+    public void threadsTestCase3Offline() throws Exception {
+        threadsTestCase3(false);
+    }
+
+
+    public void threadsTestCase3(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
-        m1.setMessageDate(1l);
+        var m1 = buildMessage(mailbox1.getId(), "m1", 1l);
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
-        m2.setInReplyTo("m1");
-        m2.setMessageDate(2l);
+        var m2 = buildMessage(mailbox1.getId(), "m2", "m1", 2l);
 
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
-        m3.setMessageDate(3l);
+        var m3 = buildMessage(mailbox1.getId(), "m3", 3l);
 
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", rc);
         assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 2);
@@ -451,31 +489,37 @@ public class CacheTest {
 
 
     /**
-     * Dos mensajes, un solo hilo, el mensaje 1 tiene en inreplyto al mensaje 2
+     * Dos mensajes, un solo hilo, el mensaje 1 tiene reference al mensaje 2
      *
      * @throws Exception
      */
     @Test
-    public void threadsTestCase4() throws Exception {
+    public void threadsTestCaseOnline() throws Exception {
+        threadsTestCase4(true);
+    }
+
+    @Test
+    public void threadsTestCase4Offline() throws Exception {
+        threadsTestCase4(false);
+    }
+
+
+    public void threadsTestCase4(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
-        m1.setInReplyTo("m2");
-        m1.setMessageDate(System.currentTimeMillis());
+        var m1 = buildMessage(mailbox1.getId(), "m1", "m2");
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
-        m2.setMessageDate(System.currentTimeMillis());
+        var m2 = buildMessage(mailbox1.getId(), "m2");
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", rc);
         assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 1);
@@ -487,42 +531,44 @@ public class CacheTest {
      *
      * @throws Exception
      */
+    @Test
+    public void threadsTestCase5Online() throws Exception {
+        threadsTestCase5(true);
+    }
 
     @Test
-    public void threadsTestCase5() throws Exception {
+    public void threadsTestCase5Offline() throws Exception {
+        threadsTestCase5(false);
+    }
+
+
+    public void threadsTestCase5(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
-        m1.setInReplyTo("m2");
-        m1.setMessageDate(System.currentTimeMillis());
+        var m1 = buildMessage(mailbox1.getId(), "m1", "m2");
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
-        m2.setInReplyTo("m3");
-        m2.setMessageDate(System.currentTimeMillis());
+        var m2 = buildMessage(mailbox1.getId(), "m2", "m3");
 
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
-        m3.setMessageDate(System.currentTimeMillis());
+        var m3 = buildMessage(mailbox1.getId(), "m3");
 
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", rc);
         assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 1);
 
     }
+
 
     /**
      * Tres mensajes un solo hilo, el mensaje 1 tiene referencia a 2, el mensaje 3 tiene referencia a 2
@@ -531,36 +577,37 @@ public class CacheTest {
      */
 
     @Test
-    public void threadsTestCase6() throws Exception {
+    public void threadsTestCase6Online() throws Exception {
+        threadsTestCase6(true);
+    }
+
+    @Test
+    public void threadsTestCase6Offline() throws Exception {
+        threadsTestCase6(false);
+    }
+
+
+    public void threadsTestCase6(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
-        m1.setInReplyTo("m2");
-        m1.setMessageDate(System.currentTimeMillis());
+        var m1 = buildMessage(mailbox1.getId(), "m1", "m2");
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
-        m2.setMessageDate(System.currentTimeMillis());
+        var m2 = buildMessage(mailbox1.getId(), "m2");
 
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
-        m3.setInReplyTo("m2");
-        m3.setMessageDate(System.currentTimeMillis());
+        var m3 = buildMessage(mailbox1.getId(), "m3", "m2");
 
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
-
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+            facade.processThreads(rc);
+        }
         var threads = facade.selectMailbox("inbox", rc);
         assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 1);
 
@@ -572,34 +619,37 @@ public class CacheTest {
      * @throws Exception
      */
     @Test
-    public void threadsTestCase7() throws Exception {
+    public void threadsTestCase7Online() throws Exception {
+        threadsTestCase7(true);
+    }
+
+    @Test
+    public void threadsTestCase7Offline() throws Exception {
+        threadsTestCase7(false);
+    }
+
+
+    public void threadsTestCase7(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
-        m1.setMessageDate(System.currentTimeMillis());
+        var m1 = buildMessage(mailbox1.getId(), "m1");
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
-        m2.setMessageDate(System.currentTimeMillis());
+        var m2 = buildMessage(mailbox1.getId(), "m2");
 
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
-        m3.setInReplyTo("m2");
-        m3.setMessageDate(System.currentTimeMillis());
+        var m3 = buildMessage(mailbox1.getId(), "m3", "m2");
 
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", rc);
         assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 2);
@@ -608,39 +658,44 @@ public class CacheTest {
 
 
     @Test
-    public void threadsTestCase8() throws Exception {
+    public void threadsTestCase8Online() throws Exception {
+        threadsTestCase8(true);
+    }
+
+    @Test
+    public void threadsTestCase8Offline() throws Exception {
+        threadsTestCase8(false);
+    }
+
+
+    public void threadsTestCase8(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
+        var m1 = buildMessage(mailbox1.getId(), "m1");
         m1.setInReplyTo("noexiste");
         m1.setReferences("noexiste");
-        m1.setMessageDate(System.currentTimeMillis());
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
+        var m2 = buildMessage(mailbox1.getId(), "m2");
         m2.setInReplyTo("noexiste");
         m2.setReferences("noexiste");
-        m2.setMessageDate(System.currentTimeMillis());
 
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
+        var m3 = buildMessage(mailbox1.getId(), "m3");
         m3.setInReplyTo("m2");
         m3.setReferences("m1 m2 noexiste");
-        m3.setMessageDate(System.currentTimeMillis());
 
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", rc);
         assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 1);
@@ -654,33 +709,40 @@ public class CacheTest {
      * @throws Exception
      */
     @Test
-    public void threadsTestCase9() throws Exception {
+    public void threadsTestCase9Online() throws Exception {
+        threadsTestCase9(true);
+    }
+
+    @Test
+    public void threadsTestCase9Offline() throws Exception {
+        threadsTestCase9(false);
+    }
+
+
+    public void threadsTestCase9(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
+        var m1 = buildMessage(mailbox1.getId(), "m1");
         m1.setMessageDate(1l);
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
+        var m2 = buildMessage(mailbox1.getId(), "m2");
         m2.setMessageDate(2l);
 
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
+        var m3 = buildMessage(mailbox1.getId(), "m3");
         m3.setMessageDate(3l);
 
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
 
         var threads = facade.selectMailbox("inbox", Sort.DATE, SortType.DESC, rc);
         var result = ((SelectedMailboxCache<UUID>) threads.ok());
@@ -703,33 +765,39 @@ public class CacheTest {
      * @throws Exception
      */
     @Test
-    public void threadsTestCase10() throws Exception {
+    public void threadsTestCase10Online() throws Exception {
+        threadsTestCase10(true);
+    }
+
+    @Test
+    public void threadsTestCase10Offline() throws Exception {
+        threadsTestCase10(false);
+    }
+
+
+    public void threadsTestCase10(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
+        var m1 = buildMessage(mailbox1.getId(), "m1");
         m1.setMessageDate(1l);
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
+        var m2 = buildMessage(mailbox1.getId(), "m2");
         m2.setMessageDate(2l);
 
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
+        var m3 = buildMessage(mailbox1.getId(), "m3");
         m3.setMessageDate(3l);
 
-
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", Sort.DATE, SortType.ASC, rc);
         var result = ((SelectedMailboxCache<UUID>) threads.ok());
@@ -752,34 +820,40 @@ public class CacheTest {
      * @throws Exception
      */
     @Test
-    public void threadsTestCase11() throws Exception {
+    public void threadsTestCase11Online() throws Exception {
+        threadsTestCase11(true);
+    }
+
+    @Test
+    public void threadsTestCase11Offline() throws Exception {
+        threadsTestCase11(false);
+    }
+
+
+    public void threadsTestCase11(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
+        var m1 = buildMessage(mailbox1.getId(), "m1");
         m1.setMessageDate(1l);
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
+        var m2 = buildMessage(mailbox1.getId(), "m2");
         m2.setReferences("m1");
         m2.setMessageDate(2l);
 
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
+        var m3 = buildMessage(mailbox1.getId(), "m3");
         m3.setMessageDate(3l);
 
-
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", Sort.DATE, SortType.ASC, rc);
         var result = ((SelectedMailboxCache<UUID>) threads.ok());
@@ -799,34 +873,41 @@ public class CacheTest {
      * @throws Exception
      */
     @Test
-    public void threadsTestCase12() throws Exception {
+    public void threadsTestCase12Online() throws Exception {
+        threadsTestCase12(true);
+    }
+
+    @Test
+    public void threadsTestCase12Offline() throws Exception {
+        threadsTestCase12(false);
+    }
+
+
+    public void threadsTestCase12(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
+        var m1 = buildMessage(mailbox1.getId(), "m1");
         m1.setMessageDate(1l);
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
+        var m2 = buildMessage(mailbox1.getId(), "m2");
         m2.setReferences("m1");
         m2.setMessageDate(2l);
 
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
+        var m3 = buildMessage(mailbox1.getId(), "m3");
         m3.setMessageDate(3l);
 
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", Sort.DATE, SortType.DESC, rc);
         var result = ((SelectedMailboxCache<UUID>) threads.ok());
@@ -846,34 +927,41 @@ public class CacheTest {
      * @throws Exception
      */
     @Test
-    public void threadsTestCase13() throws Exception {
+    public void threadsTestCase13Online() throws Exception {
+        threadsTestCase13(true);
+    }
+
+    @Test
+    public void threadsTestCase13Offline() throws Exception {
+        threadsTestCase13(false);
+    }
+
+
+    public void threadsTestCase13(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
+        var m1 = buildMessage(mailbox1.getId(), "m1");
         m1.setMessageDate(2l);
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
+        var m2 = buildMessage(mailbox1.getId(), "m2");
         m2.setReferences("m1");
         m2.setMessageDate(1l);
 
-        var m3 = new MessageCache<UUID, UUID>();
-        m3.setMailboxGid(mailbox1.getId());
-        m3.setGid(UUID.randomUUID());
-        m3.setMessageId("m3");
+        var m3 = buildMessage(mailbox1.getId(), "m3");
         m3.setMessageDate(3l);
 
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-        facade.addMessage(m3, rc);
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", Sort.DATE, SortType.ASC, rc);
         var result = ((SelectedMailboxCache<UUID>) threads.ok());
@@ -894,21 +982,31 @@ public class CacheTest {
      * @throws Exception
      */
     @Test
-    public void threadsTestCase14() throws Exception {
+    public void threadsTestCase14Online() throws Exception {
+        threadsTestCase14(true);
+    }
+
+    @Test
+    public void threadsTestCase14Offline() throws Exception {
+        threadsTestCase14(false);
+    }
+
+
+    public void threadsTestCase14(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
+        var m1 = buildMessage(mailbox1.getId(), "m1");
         m1.setMessageDate(2l);
         m1.setFlags(MessageCache.RECENT);
 
 
-        facade.addMessage(m1, rc);
-
-        facade.processThreads(rc);
+        if (online) {
+            facade.addMessage(m1, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", Sort.DATE, SortType.ASC, rc);
         var result = ((SelectedMailboxCache<UUID>) threads.ok());
@@ -925,30 +1023,37 @@ public class CacheTest {
      * @throws Exception
      */
     @Test
-    public void threadsTestCase15() throws Exception {
+    public void threadsTestCase15Online() throws Exception {
+        threadsTestCase15(true);
+    }
+
+    @Test
+    public void threadsTestCase15Offline() throws Exception {
+        threadsTestCase15(false);
+    }
+
+    public void threadsTestCase15(boolean online) throws Exception {
         var mailbox1 = this.makeMailbox("inbox");
         facade.addMailbox(mailbox1, rc);
 
-        var m1 = new MessageCache<UUID, UUID>();
-        m1.setMailboxGid(mailbox1.getId());
-        m1.setGid(UUID.randomUUID());
-        m1.setMessageId("m1");
+        var m1 = buildMessage(mailbox1.getId(), "m1");
         m1.setMessageDate(2l);
         m1.setFlags(MessageCache.RECENT);
 
-        var m2 = new MessageCache<UUID, UUID>();
-        m2.setMailboxGid(mailbox1.getId());
-        m2.setGid(UUID.randomUUID());
-        m2.setMessageId("m2");
+        var m2 = buildMessage(mailbox1.getId(), "m2");
         m2.setReferences("m1");
         m2.setMessageDate(3l);
         m2.setFlags(MessageCache.SEEN);
 
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
 
-        facade.addMessage(m1, rc);
-        facade.addMessage(m2, rc);
-
-        facade.processThreads(rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
 
         var threads = facade.selectMailbox("inbox", Sort.DATE, SortType.ASC, rc);
         var result = ((SelectedMailboxCache<UUID>) threads.ok());
@@ -960,6 +1065,602 @@ public class CacheTest {
 
         assert ((thread.getFlags() & MessageCache.RECENT) != 0);
         assert ((thread.getFlags() & MessageCache.SEEN) != 0);
+
+    }
+
+    /**
+     * tres mensajes, dos hilos, cargar dos mensajes en dos hilos, seleccionar mailbox, cargar siguiente mensaje, seleccionar mailbox. Hacer la carga inicial online y offline
+     */
+
+    @Test
+    public void threadsTestCase16Online() throws Exception {
+        threadsTestCase16(true);
+    }
+
+    @Test
+    public void threadsTestCase16Offline() throws Exception {
+        threadsTestCase16(false);
+    }
+
+    public void threadsTestCase16(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = buildMessage(mailbox1.getId(), "m2");
+        m2.setMessageDate(System.currentTimeMillis());
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 2);
+
+        var m3 = buildMessage(mailbox1.getId(), "m3");
+        m3.setInReplyTo("m2");
+        m3.setMessageDate(System.currentTimeMillis());
+
+        if (online) {
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
+
+        threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 2);
+
+    }
+
+    /**
+     * cuatro mensajes, tres hilos, cargar dos mensajes en dos hilos, seleccionar mailbox, cargar siguientes mensajes, seleccionar mailbox. Hacer la carga inicial online y offline
+     */
+
+    @Test
+    public void threadsTestCase17Online() throws Exception {
+        threadsTestCase17(true);
+    }
+
+    @Test
+    public void threadsTestCase17Offline() throws Exception {
+        threadsTestCase17(false);
+    }
+
+    public void threadsTestCase17(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = buildMessage(mailbox1.getId(), "m2");
+        m2.setMessageDate(System.currentTimeMillis());
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 2);
+
+        var m3 = buildMessage(mailbox1.getId(), "m3");
+        m3.setMessageDate(System.currentTimeMillis());
+
+        var m4 =buildMessage(mailbox1.getId(), "m4");
+        m4.setReferences("m3");
+        m4.setMessageDate(System.currentTimeMillis());
+
+        if (online) {
+            facade.addMessage(m3, rc);
+            facade.addMessage(m4, rc);
+        } else {
+            facade.addMessageNoSync(m3, rc);
+            facade.addMessageNoSync(m4, rc);
+            facade.processThreads(rc);
+        }
+
+        threads = facade.selectMailbox("inbox", rc);
+        assert (((SelectedMailboxCache<UUID>) threads.ok()).getThreadsByGid().size() == 3);
+
+    }
+
+
+    /**
+     * dos mensajes, un hilo, mensajes en mailbox diferentes
+     */
+
+
+    @Test
+    public void threadsTestCase18Online() throws Exception {
+        threadsTestCase18(true);
+    }
+
+    @Test
+    public void threadsTestCase18Offline() throws Exception {
+        threadsTestCase18(false);
+    }
+
+
+    public void threadsTestCase18(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var mailbox2 = this.makeMailbox("sent");
+        facade.addMailbox(mailbox2, rc);
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setInReplyTo("m2");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = buildMessage(mailbox2.getId(), "m2");
+        m2.setMessageDate(System.currentTimeMillis());
+
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        var firstMailbox1 = selected1.getFirst();
+        assert (selected1.getThreadsByGid().size() == 1);
+
+
+        var threads2 = facade.selectMailbox("sent", rc);
+        var selected2 = ((SelectedMailboxCache<UUID>) threads2.ok());
+        var firstMailbox2 = selected2.getFirst();
+        assert (selected2.getThreadsByGid().size() == 1);
+
+        assert (firstMailbox1.getThreadGid().equals(firstMailbox2.getThreadGid()));
+
+    }
+
+
+    /**
+     * dos mensajes, dos hilos, mensajes en mailbox diferentes
+     */
+
+
+    @Test
+    public void threadsTestCase19Online() throws Exception {
+        threadsTestCase19(true);
+    }
+
+    @Test
+    public void threadsTestCase19Offline() throws Exception {
+        threadsTestCase19(false);
+    }
+
+
+    public void threadsTestCase19(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var mailbox2 = this.makeMailbox("sent");
+        facade.addMailbox(mailbox2, rc);
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(System.currentTimeMillis());
+
+        var m2 = buildMessage(mailbox2.getId(), "m2");
+        m2.setMessageDate(System.currentTimeMillis());
+
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        var firstMailbox1 = selected1.getFirst();
+        assert (selected1.getThreadsByGid().size() == 1);
+
+
+        var threads2 = facade.selectMailbox("sent", rc);
+        var selected2 = ((SelectedMailboxCache<UUID>) threads2.ok());
+        var firstMailbox2 = selected2.getFirst();
+        assert (selected2.getThreadsByGid().size() == 1);
+
+        assert (!selected1.getMailbox().getId().equals(selected2.getMailbox().getId()));
+        assert (!firstMailbox1.getThreadGid().equals(firstMailbox2.getThreadGid()));
+
+    }
+
+
+    /**
+     * un mensaje, expunged
+     */
+
+
+    @Test
+    public void threadsTestCase20Online() throws Exception {
+        threadsTestCase20(true);
+    }
+
+    @Test
+    public void threadsTestCase20Offline() throws Exception {
+        threadsTestCase20(false);
+    }
+
+
+    public void threadsTestCase20(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(System.currentTimeMillis());
+        m1.setExpunged(true);
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 0);
+
+    }
+
+
+    /**
+     * dos mensajes, uno expunged
+     */
+
+
+    @Test
+    public void threadsTestCase21Online() throws Exception {
+        threadsTestCase21(true);
+    }
+
+    @Test
+    public void threadsTestCase21Offline() throws Exception {
+        threadsTestCase21(false);
+    }
+
+
+    public void threadsTestCase21(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(System.currentTimeMillis());
+        m1.setExpunged(true);
+
+        var m2 = buildMessage(mailbox1.getId(), "m2");
+        m2.setReferences("m1");
+        m2.setMessageDate(System.currentTimeMillis());
+        m2.setExpunged(false);
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 1);
+
+        var thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
+        assert (thread != null);
+        assert (thread.getMessages().size() == 2);
+
+    }
+
+
+    /**
+     * dos mensajes, un thread, un mensaje seen otro unseen
+     */
+
+
+    @Test
+    public void threadsTestCase22Online() throws Exception {
+        threadsTestCase22(true);
+    }
+
+    @Test
+    public void threadsTestCase22Offline() throws Exception {
+        threadsTestCase22(false);
+    }
+
+
+    public void threadsTestCase22(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setFlags(MessageCache.UNSEEN);
+
+        var m2 = buildMessage(mailbox1.getId(), "m2");
+        m2.setReferences("m1");
+        m2.setMessageDate(System.currentTimeMillis());
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 1);
+
+        var thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
+        assert (thread != null);
+        assert (thread.getMessages().size() == 2);
+
+        assert (selected1.getTotal().get() == 1l);
+        assert (selected1.getUnseen().get() == 1l);
+
+    }
+
+    /**
+     * dos mensajes, un thread, dos mensaje unseen
+     */
+
+
+    @Test
+    public void threadsTestCase23Online() throws Exception {
+        threadsTestCase23(true);
+    }
+
+    @Test
+    public void threadsTestCase23Offline() throws Exception {
+        threadsTestCase23(false);
+    }
+
+
+    public void threadsTestCase23(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(System.currentTimeMillis());
+        m1.setFlags(MessageCache.UNSEEN);
+
+        var m2 =buildMessage(mailbox1.getId(), "m2");
+        m2.setReferences("m1");
+        m2.setMessageDate(System.currentTimeMillis());
+        m2.setFlags(MessageCache.UNSEEN);
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 1);
+
+        var thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
+        assert (thread != null);
+        assert (thread.getMessages().size() == 2);
+
+        assert (selected1.getTotal().get() == 1l);
+        assert (selected1.getUnseen().get() == 1l);
+
+    }
+
+    /**
+     * dos mensajes, un thread, dos mensaje seen
+     */
+
+
+    @Test
+    public void threadsTestCase24Online() throws Exception {
+        threadsTestCase24(true);
+    }
+
+    @Test
+    public void threadsTestCase24Offline() throws Exception {
+        threadsTestCase24(false);
+    }
+
+
+    public void threadsTestCase24(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+
+        var m1 =buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(System.currentTimeMillis());
+
+
+        var m2 = buildMessage(mailbox1.getId(), "m2");
+        m2.setReferences("m1");
+        m2.setMessageDate(System.currentTimeMillis());
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 1);
+
+        var thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
+        assert (thread != null);
+        assert (thread.getMessages().size() == 2);
+
+        assert (selected1.getTotal().get() == 1l);
+        assert (selected1.getUnseen().get() == 0l);
+
+    }
+
+    /**
+     * dos mensajes, dos thread thread, uno seen uno unseen
+     */
+    @Test
+    public void threadsTestCase25Online() throws Exception {
+        threadsTestCase25(true);
+    }
+
+    @Test
+    public void threadsTestCase25Offline() throws Exception {
+        threadsTestCase25(false);
+    }
+
+
+    public void threadsTestCase25(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(System.currentTimeMillis());
+        m1.setFlags(MessageCache.UNSEEN);
+
+
+        var m2 = buildMessage(mailbox1.getId(), "m2");
+        m2.setMessageDate(System.currentTimeMillis());
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 2);
+
+        var thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
+        assert (thread != null);
+        assert (thread.getMessages().size() == 1);
+
+        assert (selected1.getTotal().get() == 2l);
+        assert (selected1.getUnseen().get() == 1l);
+
+    }
+
+    /**
+     * tres mensajes, dos thread, cargo 1 y 2, separados, seen, cargo 3, unseen
+     */
+
+    @Test
+    public void threadsTestCase26Online() throws Exception {
+        threadsTestCase26(true);
+    }
+
+    @Test
+    public void threadsTestCase26Offline() throws Exception {
+        threadsTestCase26(false);
+    }
+
+
+    public void threadsTestCase26(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(1l);
+
+
+        var m2 = buildMessage(mailbox1.getId(), "m2");
+        m2.setMessageDate(2l);
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox("inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 2);
+
+        var thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
+        assert (thread != null);
+        assert (thread.getMessages().size() == 1);
+
+        assert (selected1.getTotal().get() == 2l);
+        assert (selected1.getUnseen().get() == 0l);
+
+
+        var m3 = buildMessage(mailbox1.getId(), "m3");
+        m3.setReferences("m2");
+        m3.setMessageDate(3l);
+        m3.setFlags(MessageCache.UNSEEN);
+
+
+        if (online) {
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
+
+        threads = facade.selectMailbox("inbox", Sort.DATE, SortType.DESC, rc);
+        selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 2);
+
+        thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
+        assert (thread != null);
+        assert (thread.getMessages().size() == 2);
+
+        assert (selected1.getTotal().get() == 2l);
+        assert (selected1.getUnseen().get() == 1l);
+        assert ((thread.getFlags() & MessageCache.UNSEEN) > 0);
+
 
     }
 }

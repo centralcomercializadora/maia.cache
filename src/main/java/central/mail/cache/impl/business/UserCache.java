@@ -17,6 +17,7 @@ import com.googlecode.cqengine.resultset.ResultSet;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -58,12 +59,24 @@ public class UserCache {
         }
     };
 
-    public static final Attribute<MailboxMessageCache<UUID, UUID>, UUID> MESSAGE_MAILBOXID = new SimpleAttribute<MailboxMessageCache<UUID, UUID>, UUID>("mailboxMessageId") {
-        @Override
-        public UUID getValue(MailboxMessageCache<UUID, UUID> o, QueryOptions queryOptions) {
-            return o.getMailboxGid();
+    public static final Attribute<MessageCache<UUID, UUID>, Long> MESSAGE_UIDVALIDITY = new SimpleAttribute<>("messageUidValidity") {
+        public Long getValue(MessageCache<UUID, UUID> ob, QueryOptions queryOptions) {
+            return ob.getMailboxUidValidity();
         }
     };
+
+    public static final Attribute<MessageCache<UUID, UUID>, Long> MESSAGE_UID = new SimpleAttribute<>("messageUid") {
+        public Long getValue(MessageCache<UUID, UUID> ob, QueryOptions queryOptions) {
+            return ob.getUid();
+        }
+    };
+
+    public static final Attribute<MessageCache<UUID, UUID>, UUID> MESSAGE_MAILBOXGID = new SimpleAttribute<>("messageMailboxGid") {
+        public UUID getValue(MessageCache<UUID, UUID> ob, QueryOptions queryOptions) {
+            return ob.getMailboxGid();
+        }
+    };
+
 
     public static final Attribute<MailboxThreadMessageCache<UUID>, UUID> MAILBOXTHREAD_MAILBOXID = new SimpleAttribute<MailboxThreadMessageCache<UUID>, UUID>("threadMailboxGid") {
         @Override
@@ -93,7 +106,6 @@ public class UserCache {
 
     private IndexedCollection<MailboxCache<UUID>> mailboxes = new ConcurrentIndexedCollection<>();
     private IndexedCollection<MessageCache<UUID, UUID>> messages = new ConcurrentIndexedCollection<>();
-    private IndexedCollection<MailboxMessageCache<UUID, UUID>> mailboxMessages = new ConcurrentIndexedCollection<>();
     private IndexedCollection<ThreadMessageCache<UUID>> threads = new ConcurrentIndexedCollection<>();
     private IndexedCollection<MailboxThreadMessageCache<UUID>> mailboxThreads = new ConcurrentIndexedCollection<>();
     private IndexedCollection<ThreadMessageIdCache<UUID>> messageIdThreads = new ConcurrentIndexedCollection<>();
@@ -111,8 +123,10 @@ public class UserCache {
         this.mailboxes.addIndex(HashIndex.onAttribute(MAILBOX_NAME));
         this.mailboxes.addIndex(HashIndex.onAttribute(MAILBOX_ID));
 
-        this.mailboxMessages.addIndex(HashIndex.onAttribute(MESSAGE_MAILBOXID));
         this.messages.addIndex(HashIndex.onAttribute(MESSAGE_ID));
+        this.messages.addIndex(HashIndex.onAttribute(MESSAGE_UIDVALIDITY));
+        this.messages.addIndex(HashIndex.onAttribute(MESSAGE_UID));
+        this.messages.addIndex(HashIndex.onAttribute(MESSAGE_MAILBOXGID));
 
         this.threads.addIndex(HashIndex.onAttribute(THREAD_GID));
         this.threads.addIndex(HashIndex.onAttribute(THREAD_MESSAGEID));
@@ -132,7 +146,9 @@ public class UserCache {
     }
 
     public synchronized void add(MessageCache<UUID, UUID> message, boolean syncThreads) throws BusinessException {
-        synchronized (sync) {
+        try {
+            this.lock.lock();
+
             UUID mailboxId = message.getMailboxGid();
 
             // todos los mensajes deben tener messageid
@@ -140,22 +156,20 @@ public class UserCache {
                 message.setMessageId(UUID.randomUUID() + "-auto");
             }
 
-            var mailbox = this.getMailboxById(mailboxId);
-
             var currentMessage = this.getMessageById(message.getGid());
             if (currentMessage == null) {
                 this.messages.add(message);
             }
 
-            var mailboxMessage = new MailboxMessageCache<UUID, UUID>();
-            mailboxMessage.setMessageGid(message.getGid());
-            mailboxMessage.setMailboxGid(mailbox.getId());
-            this.mailboxMessages.add(mailboxMessage);
-
             if (syncThreads) {
-
+                this.processThreadsMessage(message, true, true);
+            }
+        } finally {
+            if (this.lock.isLocked()) {
+                this.lock.unlock();
             }
         }
+
     }
 
 
@@ -172,16 +186,18 @@ public class UserCache {
                 if (message == null) {
                     continue;
                 }
-
-                var current = this.fetchMailboxThreadMessageByMailboxAndThread(message.getMailboxGid(), thread.getGid());
-                if (current == null) {
-                    current = new MailboxThreadMessageCache<>();
-                    current.setGid(thread.getGid());
-                    current.setMailboxGid(message.getMailboxGid());
-                    this.mailboxThreads.add(current);
-                }
-
+                this.addMailboxThread(thread, message);
             }
+        }
+    }
+
+    private void addMailboxThread(ThreadMessageCache<UUID> thread, MessageCache<UUID, UUID> message) {
+        var current = this.fetchMailboxThreadMessageByMailboxAndThread(message.getMailboxGid(), thread.getGid());
+        if (current == null) {
+            current = new MailboxThreadMessageCache<>();
+            current.setGid(thread.getGid());
+            current.setMailboxGid(message.getMailboxGid());
+            this.mailboxThreads.add(current);
         }
     }
 
@@ -194,100 +210,137 @@ public class UserCache {
 
     public synchronized void processThreads() {
 
-        for (var message : this.messages) {
+        try {
+            this.lock.lock();
 
 
-            // busco los threads segun las referencias que tengo
-            Set<String> references = new HashSet<>();
+            this.threads.clear();
+            this.messageIdThreads.clear();
+            this.mailboxThreads.clear();
+            this.threadByMessageGid.clear();
+            this.selectedMailboxesByMailboxGid.clear();
 
-            if (message.getInReplyTo() != null) {
-                String messageIdInReplyTo = message.getInReplyTo().trim();
-                references.add(messageIdInReplyTo);
+            for (var message : this.messages) {
+                // busco los threads segun las referencias que tengo
+                processThreadsMessage(message, false, false);
             }
 
-            if (message.getReferences() != null) {
-                String[] referencesId = message.getReferences().replaceAll(",", " ").trim().split(" ");
-                if (referencesId != null && referencesId.length > 0) {
-                    for (String referenceId : referencesId) {
-                        references.add(referenceId.trim());
-                    }
+            processMailboxThreadMessages();
+        } finally {
+            if (this.lock.isLocked()) {
+                this.lock.unlock();
+            }
+        }
+    }
+
+    private void processThreadsMessage(MessageCache<UUID, UUID> message, boolean syncAllFlags, boolean syncMailboxThreads) {
+        Set<String> references = new HashSet<>();
+
+        if (message.getInReplyTo() != null) {
+            String messageIdInReplyTo = message.getInReplyTo().trim();
+            references.add(messageIdInReplyTo);
+        }
+
+        if (message.getReferences() != null) {
+            String[] referencesId = message.getReferences().replaceAll(",", " ").trim().split(" ");
+            if (referencesId != null && referencesId.length > 0) {
+                for (String referenceId : referencesId) {
+                    references.add(referenceId.trim());
                 }
             }
+        }
 
-            ThreadMessageIdCache<UUID> currentThreadMessageId = null;
+        ThreadMessageIdCache<UUID> currentThreadMessageId = null;
 
 
-            for (String reference : references) {
+        for (String reference : references) {
 
-                if (reference.trim().isEmpty()) {
-                    continue;
-                }
-
-                currentThreadMessageId = this.fetchThreadMessageIdByMessageId(reference);
-
-                if (currentThreadMessageId != null) {
-                    break;
-                }
+            if (reference.trim().isEmpty()) {
+                continue;
             }
 
-            if (currentThreadMessageId == null) {
-                currentThreadMessageId = this.fetchThreadMessageIdByMessageId(message.getMessageId());
-            }
-
-
-            ThreadMessageCache<UUID> thread = null;
+            currentThreadMessageId = this.fetchThreadMessageIdByMessageId(reference);
 
             if (currentThreadMessageId != null) {
-                thread = this.fetchThreadMessageByGid(currentThreadMessageId.getThreadGid());
+                break;
             }
+        }
 
-            if (thread == null) {
-                thread = new ThreadMessageCache<>();
-                thread.setGid(UUID.randomUUID());
-                thread.setMessageId(message.getMessageId());
-                this.threads.add(thread);
-            }
+        if (currentThreadMessageId == null) {
+            currentThreadMessageId = this.fetchThreadMessageIdByMessageId(message.getMessageId());
+        }
 
-            if (thread.getMainMessageGid() == null) {
-                thread.setMainMessageGid(message.getGid());
+
+        ThreadMessageCache<UUID> thread = null;
+
+        if (currentThreadMessageId != null) {
+            thread = this.fetchThreadMessageByGid(currentThreadMessageId.getThreadGid());
+        }
+
+        if (thread == null) {
+            thread = new ThreadMessageCache<>();
+            thread.setGid(UUID.randomUUID());
+            thread.setMessageId(message.getMessageId());
+            this.threads.add(thread);
+        }
+
+        if (thread.getMainMessageGid() == null) {
+            thread.setMainMessageGid(message.getGid());
+            thread.setMainMessageDate(message.getMessageDate());
+        } else {
+            if (message.getMessageDate() >= thread.getMainMessageDate()) {
                 thread.setMainMessageDate(message.getMessageDate());
-            } else {
-                if (message.getMessageDate() >= thread.getMainMessageDate()) {
-                    thread.setMainMessageDate(message.getMessageDate());
-                    thread.setMainMessageGid(message.getGid());
+                thread.setMainMessageGid(message.getGid());
+            }
+        }
+
+        thread.getMessages().add(message.getGid());
+        threadByMessageGid.put(message.getGid(), thread.getGid());
+
+        if (syncAllFlags) {
+            thread.setFlags(0l);
+            thread.setExpunged(true);
+            for (var messageGidInThread : thread.getMessages()) {
+                var messageInThread = this.getMessageById(messageGidInThread);
+                if (messageInThread != null) {
+                    thread.setExpunged(thread.isExpunged() && messageInThread.isExpunged());
+                    if (!messageInThread.isExpunged()) {
+                        thread.setFlags(thread.getFlags() | messageInThread.getFlags());
+                    }
+
                 }
             }
 
-            thread.getMessages().add(message.getGid());
-            threadByMessageGid.put(message.getGid(), thread.getGid());
-
+        } else {
             thread.setFlags(thread.getFlags() | message.getFlags());
+            thread.setExpunged(thread.isExpunged() && message.isExpunged());
+        }
 
 
-            // las referencias y el messageid debe apuntar al thread
-            for (var reference : references) {
-                var threadMessageId = new ThreadMessageIdCache<UUID>();
-                threadMessageId.setMessageId(reference);
-                threadMessageId.setThreadGid(thread.getGid());
-                //solo lo agrego si no esta
-                if (this.fetchThreadMessageIdByMessageId(reference) == null) {
-                    this.messageIdThreads.add(threadMessageId);
-                }
-
-            }
-            if (this.fetchThreadMessageIdByMessageId(message.getMessageId()) == null) {
-                var threadMessageId = new ThreadMessageIdCache<UUID>();
-                threadMessageId.setMessageId(message.getMessageId());
-                threadMessageId.setThreadGid(thread.getGid());
-                //solo lo agrego si no esta
-
+        // las referencias y el messageid debe apuntar al thread
+        for (var reference : references) {
+            var threadMessageId = new ThreadMessageIdCache<UUID>();
+            threadMessageId.setMessageId(reference);
+            threadMessageId.setThreadGid(thread.getGid());
+            //solo lo agrego si no esta
+            if (this.fetchThreadMessageIdByMessageId(reference) == null) {
                 this.messageIdThreads.add(threadMessageId);
             }
 
+        }
+        if (this.fetchThreadMessageIdByMessageId(message.getMessageId()) == null) {
+            var threadMessageId = new ThreadMessageIdCache<UUID>();
+            threadMessageId.setMessageId(message.getMessageId());
+            threadMessageId.setThreadGid(thread.getGid());
+            //solo lo agrego si no esta
 
+            this.messageIdThreads.add(threadMessageId);
         }
 
-        processMailboxThreadMessages();
+        if (syncMailboxThreads) {
+            this.selectedMailboxesByMailboxGid.remove(message.getMailboxGid());
+            this.addMailboxThread(thread, message);
+        }
     }
 
     public UserCacheStore toStore() throws IOException, ClassNotFoundException {
@@ -369,16 +422,16 @@ public class UserCache {
     }
 
 
-    public Result<Iterator<MailboxMessageCache<UUID, UUID>>> fetchMailboxMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<Iterator<MessageCache<UUID, UUID>>> fetchMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var mailbox = this.getMailboxByName(name);
         if (mailbox.isError()) {
             return error(mailbox.getErrores());
         }
-        ResultSet<MailboxMessageCache<UUID, UUID>> rs = null;
+        ResultSet<MessageCache<UUID, UUID>> rs = null;
         try {
-            rs = this.mailboxMessages.retrieve(equal(MESSAGE_MAILBOXID, mailbox.ok().getId()));
+            rs = this.messages.retrieve(equal(MESSAGE_MAILBOXGID, mailbox.ok().getId()));
             if (rs.isEmpty()) {
-                return ok(new ArrayList<MailboxMessageCache<UUID, UUID>>().iterator());
+                return ok(new ArrayList<MessageCache<UUID, UUID>>().iterator());
             }
             return ok(rs.iterator());
         } finally {
@@ -497,12 +550,20 @@ public class UserCache {
             var threads = new ArrayList<OrderedThreadCache<UUID>>();
             var gids = new HashSet<UUID>();
 
+            var threadsUnSeen = 0;
+            var totalThreads = 0;
+
             if (threadsInMailboxRs != null) {
                 var it = threadsInMailboxRs.iterator();
                 while (it.hasNext()) {
                     var mailboxThreadMessage = it.next();
                     var thread = this.fetchThreadMessageByGid(mailboxThreadMessage.getGid());
                     if (thread != null) {
+
+                        if (thread.isExpunged()) {
+                            continue;
+                        }
+
                         if (!gids.contains(thread.getGid())) {
                             gids.add(thread.getGid());
 
@@ -510,9 +571,7 @@ public class UserCache {
 
                             var orderedThread = new OrderedThreadCache();
 
-
-                            // depende del ordenamiento que quira darle
-
+                            // depende del ordenamiento que quiera darle
 
                             switch (sort) {
                                 case DATE:
@@ -539,6 +598,13 @@ public class UserCache {
                             orderedThread.setMessageGid(thread.getMainMessageGid());
                             orderedThread.setThreadGid(thread.getGid());
                             threads.add(orderedThread);
+
+                            //contadores
+                            if ((thread.getFlags() & MessageCache.UNSEEN) > 0l) {
+                                threadsUnSeen++;
+                            }
+                            totalThreads++;
+
                         }
                     }
                 }
@@ -552,6 +618,7 @@ public class UserCache {
             Map<UUID, OrderedThreadCache<UUID>> threadsByGid = new ConcurrentHashMap<>();
 
             var size = threads.size();
+
 
             for (int i = 0; i < size; i++) {
                 var current = threads.get(i);
@@ -575,6 +642,8 @@ public class UserCache {
             System.out.println("mailbox threads: " + threads.size());
 
             selectedMailbox = new SelectedMailboxCache<>(mailbox, first, threadsByGid);
+            selectedMailbox.setTotal(new AtomicLong(totalThreads));
+            selectedMailbox.setUnseen(new AtomicLong(threadsUnSeen));
             this.selectedMailboxesByMailboxGid.put(mailbox.getId(), selectedMailbox);
             return ok(selectedMailbox);
         } finally {

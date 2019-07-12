@@ -31,6 +31,7 @@ public class MessageCache<K, T> implements Serializable {
     private String to;
     private String cc;
     private String bcc;
+    private boolean expunged;
 
 
     public Long getUid() {
@@ -189,5 +190,13 @@ public class MessageCache<K, T> implements Serializable {
 
     public void setMailboxGid(T mailboxGid) {
         this.mailboxGid = mailboxGid;
+    }
+
+    public boolean isExpunged() {
+        return expunged;
+    }
+
+    public void setExpunged(boolean expunged) {
+        this.expunged = expunged;
     }
 }

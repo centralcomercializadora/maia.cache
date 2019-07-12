@@ -20,9 +20,11 @@ public interface ICacheBusiness {
 
     void addMessage(MessageCache<UUID, UUID> message, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
+    void addMessageNoSync(MessageCache<UUID, UUID> message, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
     void processThreads(ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
-    Result<Iterator<MailboxMessageCache<UUID, UUID>>> fetchMailboxMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+    Result<Iterator<MessageCache<UUID, UUID>>> fetchMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
     Result<Integer> getThreadsCount(ExecutionContext<UUID, UUID> ec) throws BusinessException;
 

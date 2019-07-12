@@ -34,15 +34,21 @@ public class CacheFacade implements ICacheFacade {
     }
 
     @Override
+    public void addMessageNoSync(MessageCache<UUID, UUID> message, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.addMessageNoSync(message, ec);
+    }
+
+    @Override
     public Result<MailboxCache<UUID>> fetchMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var business = Registry.getInstance(ICacheBusiness.class);
         return business.fetchMailboxByName(name, ec);
     }
 
     @Override
-    public Result<Iterator<MailboxMessageCache<UUID, UUID>>> fetchMailboxMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<Iterator<MessageCache<UUID, UUID>>> fetchMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var business = Registry.getInstance(ICacheBusiness.class);
-        return business.fetchMailboxMessagesInMailboxByName(name, ec);
+        return business.fetchMessagesInMailboxByName(name, ec);
     }
 
     @Override
