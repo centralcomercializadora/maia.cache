@@ -303,7 +303,7 @@ public class UserCache {
                 this.addNoSync(message);
             }
             this.lastRefresh = store.getLastRefresh();
-            this.processThreads();
+
         } catch (BusinessException e) {
             e.printStackTrace();
             throw new IOException(e.getMessage());
