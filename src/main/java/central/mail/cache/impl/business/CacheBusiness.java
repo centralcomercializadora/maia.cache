@@ -343,6 +343,12 @@ public class CacheBusiness implements ICacheBusiness {
         var userCache = this.getUserCache(true, false, ec);
         return ok(userCache.getMessageById(messageGid));
     }
+
+    @Override
+    public MessageCache<UUID, UUID> fetchMessageByMailboxIdAndUid(UUID mailboxGid, Long uid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        return userCache.getMessageByMailboxIdAndUid(mailboxGid, uid);
+    }
 }
 
 

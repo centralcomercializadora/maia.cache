@@ -41,4 +41,5 @@ public interface ICacheFacade {
 
     Result<MessageCache<UUID, UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
+    MessageCache<UUID, UUID> fetchMessageByMailboxIdAndUid(UUID mailboxGid, Long uid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 }

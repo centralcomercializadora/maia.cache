@@ -100,8 +100,14 @@ public class CacheFacade implements ICacheFacade {
     }
 
     @Override
-    public Result<MessageCache<UUID,UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException{
+    public Result<MessageCache<UUID, UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var business = Registry.getInstance(ICacheBusiness.class);
         return business.fetchMessageByGid(messageGid, ec);
+    }
+
+    @Override
+    public MessageCache<UUID, UUID> fetchMessageByMailboxIdAndUid(UUID mailboxGid, Long uid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.fetchMessageByMailboxIdAndUid(mailboxGid, uid, ec);
     }
 }

@@ -455,6 +455,22 @@ public class UserCache {
         }
     }
 
+    public MessageCache<UUID, UUID> getMessageByMailboxIdAndUid(UUID mailboxGid, Long uid) {
+
+        ResultSet<MessageCache<UUID, UUID>> rs = null;
+
+        try {
+            rs = this.messages.retrieve(and(equal(MESSAGE_MAILBOXGID, mailboxGid), equal(MESSAGE_UID, uid)));
+            if (rs.isEmpty()) {
+                return null;
+            }
+            var res = (MessageCache<UUID, UUID>) rs.iterator().next();
+            return res;
+        } finally {
+            rs.close();
+        }
+    }
+
     public ThreadMessageIdCache<UUID> fetchThreadMessageIdByMessageId(String messageId) {
 
         ResultSet<ThreadMessageIdCache<UUID>> rs = null;

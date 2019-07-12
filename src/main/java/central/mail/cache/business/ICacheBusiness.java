@@ -41,4 +41,6 @@ public interface ICacheBusiness {
     void recoverUserCache(ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
     Result<MessageCache<UUID, UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
+    MessageCache<UUID, UUID> fetchMessageByMailboxIdAndUid(UUID mailboxGid, Long uid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 }
