@@ -17,6 +17,8 @@ import com.googlecode.cqengine.resultset.ResultSet;
 import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static bee.result.Result.error;
 import static bee.result.Result.ok;
@@ -96,6 +98,8 @@ public class UserCache {
     private IndexedCollection<MailboxThreadMessageCache<UUID>> mailboxThreads = new ConcurrentIndexedCollection<>();
     private IndexedCollection<ThreadMessageIdCache<UUID>> messageIdThreads = new ConcurrentIndexedCollection<>();
     private Map<UUID, UUID> threadByMessageGid = new ConcurrentHashMap<>();
+    private Map<UUID, SelectedMailboxCache<UUID>> selectedMailboxesByMailboxGid = new ConcurrentHashMap<>();
+    private ReentrantLock lock = new ReentrantLock();
 
     private Long lastRefresh = null;
     private UUID mailboxGuidSelected;
@@ -147,6 +151,10 @@ public class UserCache {
             mailboxMessage.setMessageGid(message.getGid());
             mailboxMessage.setMailboxGid(mailbox.getId());
             this.mailboxMessages.add(mailboxMessage);
+
+            if (syncThreads) {
+
+            }
         }
     }
 
@@ -463,94 +471,117 @@ public class UserCache {
 
     public Result<SelectedMailboxCache<UUID>> selectMailbox(MailboxCache<UUID> mailbox, Sort sort, SortType sortType) {
         //saber si debo volver a procesar todo el cache
+        var selectedMailbox = this.selectedMailboxesByMailboxGid.get(mailbox.getId());
+        if (selectedMailbox != null) {
+            // debo refrescar el selected?
+            return ok(selectedMailbox);
+        }
+
+        try {
+            this.lock.lock();
+
+            selectedMailbox = this.selectedMailboxesByMailboxGid.get(mailbox.getId());
+
+            if (selectedMailbox != null) {
+                // debo refrescar el selected?
+                return ok(selectedMailbox);
+            }
 
 
-        //filtrar los threas que esten en el mailbox y ordenarlos
+            //filtrar los threas que esten en el mailbox y ordenarlos
 
-        //filtro
-        var threadsInMailboxRs = this.mailboxThreads.retrieve(equal(MAILBOXTHREAD_MAILBOXID, mailbox.getId()));
+            //filtro
+            var threadsInMailboxRs = this.mailboxThreads.retrieve(equal(MAILBOXTHREAD_MAILBOXID, mailbox.getId()));
 
-        //los agrego a una lista temporal
-        var threads = new ArrayList<OrderedThreadCache<UUID>>();
-        var gids = new HashSet<UUID>();
+            //los agrego a una lista temporal
+            var threads = new ArrayList<OrderedThreadCache<UUID>>();
+            var gids = new HashSet<UUID>();
 
-        if (threadsInMailboxRs != null) {
-            var it = threadsInMailboxRs.iterator();
-            while (it.hasNext()) {
-                var mailboxThreadMessage = it.next();
-                var thread = this.fetchThreadMessageByGid(mailboxThreadMessage.getGid());
-                if (thread != null) {
-                    if (!gids.contains(thread.getGid())) {
-                        gids.add(thread.getGid());
+            if (threadsInMailboxRs != null) {
+                var it = threadsInMailboxRs.iterator();
+                while (it.hasNext()) {
+                    var mailboxThreadMessage = it.next();
+                    var thread = this.fetchThreadMessageByGid(mailboxThreadMessage.getGid());
+                    if (thread != null) {
+                        if (!gids.contains(thread.getGid())) {
+                            gids.add(thread.getGid());
 
-                        var message = this.getMessageById(thread.getMainMessageGid());
+                            var message = this.getMessageById(thread.getMainMessageGid());
 
-                        var orderedThread = new OrderedThreadCache();
-
-
-                        // depende del ordenamiento que quira darle
+                            var orderedThread = new OrderedThreadCache();
 
 
-                        switch (sort) {
-                            case DATE:
-                                orderedThread.setOrderProperty(message.getMessageDate());
-                                if (orderedThread.getOrderProperty() == null) {
-                                    orderedThread.setOrderProperty(0l);
-                                }
-                                break;
-                            case FROM:
-                                orderedThread.setOrderProperty(message.getFrom());
-                                if (orderedThread.getOrderProperty() == null) {
-                                    orderedThread.setOrderProperty("");
-                                }
-                                break;
-                            case SUBJECT:
-                                orderedThread.setOrderProperty(message.getSubject());
-                                if (orderedThread.getOrderProperty() == null) {
-                                    orderedThread.setOrderProperty("");
-                                }
-                                break;
+                            // depende del ordenamiento que quira darle
+
+
+                            switch (sort) {
+                                case DATE:
+                                    orderedThread.setOrderProperty(message.getMessageDate());
+                                    if (orderedThread.getOrderProperty() == null) {
+                                        orderedThread.setOrderProperty(0l);
+                                    }
+                                    break;
+                                case FROM:
+                                    orderedThread.setOrderProperty(message.getFrom());
+                                    if (orderedThread.getOrderProperty() == null) {
+                                        orderedThread.setOrderProperty("");
+                                    }
+                                    break;
+                                case SUBJECT:
+                                    orderedThread.setOrderProperty(message.getSubject());
+                                    if (orderedThread.getOrderProperty() == null) {
+                                        orderedThread.setOrderProperty("");
+                                    }
+                                    break;
+                            }
+
+
+                            orderedThread.setMessageGid(thread.getMainMessageGid());
+                            orderedThread.setThreadGid(thread.getGid());
+                            threads.add(orderedThread);
                         }
-
-
-                        orderedThread.setMessageGid(thread.getMainMessageGid());
-                        orderedThread.setThreadGid(thread.getGid());
-                        threads.add(orderedThread);
                     }
                 }
             }
-        }
 
-        // ordeno los threads
-        var sortAux = (sortType == SortType.DESC) ? -1 : 1;
-        Collections.sort(threads, (o, r) -> sortAux * o.getOrderProperty().compareTo(r.getOrderProperty()));
+            // ordeno los threads
+            var sortAux = (sortType == SortType.DESC) ? -1 : 1;
+            Collections.sort(threads, (o, r) -> sortAux * o.getOrderProperty().compareTo(r.getOrderProperty()));
 
-        OrderedThreadCache<UUID> first = null;
-        Map<UUID, OrderedThreadCache<UUID>> threadsByGid = new ConcurrentHashMap<>();
+            OrderedThreadCache<UUID> first = null;
+            Map<UUID, OrderedThreadCache<UUID>> threadsByGid = new ConcurrentHashMap<>();
 
-        var size = threads.size();
+            var size = threads.size();
 
-        for (int i = 0; i < size; i++) {
-            var current = threads.get(i);
+            for (int i = 0; i < size; i++) {
+                var current = threads.get(i);
 
-            if (i == 0) {
-                first = current;
+                if (i == 0) {
+                    first = current;
+                }
+
+                threadsByGid.put(current.getThreadGid(), current);
+
+                if ((i + 1) < threads.size()) {
+                    var next = threads.get(i + 1);
+                    current.setNext(next.getThreadGid());
+                    next.setPrev(current.getThreadGid());
+                    threadsByGid.put(next.getThreadGid(), next);
+                }
             }
 
-            threadsByGid.put(current.getThreadGid(), current);
+            System.out.println("threads all: " + this.threads.size());
+            System.out.println("threads: " + this.mailboxThreads.size());
+            System.out.println("mailbox threads: " + threads.size());
 
-            if ((i + 1) < threads.size()) {
-                var next = threads.get(i + 1);
-                current.setNext(next.getThreadGid());
-                next.setPrev(current.getThreadGid());
-                threadsByGid.put(next.getThreadGid(), next);
+            selectedMailbox = new SelectedMailboxCache<>(mailbox, first, threadsByGid);
+            this.selectedMailboxesByMailboxGid.put(mailbox.getId(), selectedMailbox);
+            return ok(selectedMailbox);
+        } finally {
+            if (this.lock.isLocked()) {
+                this.lock.unlock();
             }
         }
-
-        System.out.println("threads all: " + this.threads.size());
-        System.out.println("threads: " + this.mailboxThreads.size());
-        System.out.println("mailbox threads: " + threads.size());
-        return ok(new SelectedMailboxCache<>(mailbox, first, threadsByGid));
     }
 
 }
