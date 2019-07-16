@@ -1750,7 +1750,6 @@ public class CacheTest {
 
 
 
-
         threads = facade.selectMailbox("inbox", Sort.DATE, SortType.DESC, rc);
         selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
         assert (selected1.getThreadsByGid().size() == 2);
