@@ -1,8 +1,8 @@
 {
   "modulos": [
-    "bee.errorhandler.modulo.ErrorHandlerModule",
-    "bee.configuracion.modulo.ConfiguracionModule",
-    "bee.dataaccess.modulo.DataaccessModule",
+    "cognitivesolutions.errorhandler.modulo.ErrorHandlerModule",
+    "cognitivesolutions.configuracion.modulo.ConfiguracionModule",
+    "cognitivesolutions.dataaccess.modulo.DataaccessModule",
     "central.mail.cache.module.Cache"
   ],
   "logConfig": "./logback.xml",

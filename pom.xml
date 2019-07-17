@@ -9,20 +9,22 @@
     <version>1.0-SNAPSHOT</version>
 
     <dependencies>
+
+
         <dependency>
             <artifactId>errorhandler</artifactId>
-            <groupId>bee</groupId>
+            <groupId>co.cognitivesolutions</groupId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
 
         <dependency>
             <artifactId>framework-common</artifactId>
-            <groupId>bee</groupId>
+            <groupId>co.cognitivesolutions</groupId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
 
         <dependency>
-            <groupId>bee</groupId>
+            <groupId>co.cognitivesolutions</groupId>
             <artifactId>dataaccess</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
@@ -35,13 +37,13 @@
 
 
         <dependency>
-            <groupId>bee</groupId>
+            <groupId>co.cognitivesolutions</groupId>
             <artifactId>configuracion</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
 
         <dependency>
-            <groupId>bee</groupId>
+            <groupId>co.cognitivesolutions</groupId>
             <artifactId>serviceregistry</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
@@ -79,12 +81,14 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- https://mvnrepository.com/artifact/org.apache.james/apache-mime4j -->
         <dependency>
             <groupId>org.apache.james</groupId>
             <artifactId>apache-mime4j</artifactId>
-            <version>0.8.1</version>
-            <scope>test</scope>
+            <version>0.8.3</version>
+            <type>pom</type>
         </dependency>
+
 
     </dependencies>
 

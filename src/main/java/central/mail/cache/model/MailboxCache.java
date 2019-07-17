@@ -18,6 +18,7 @@ public class MailboxCache<T> implements Serializable {
     private Long uidNext;
     private Long lastModSeq;
     private Long lastUidNext;
+    private boolean removed = false;
 
     public T getId() {
         return id;
@@ -160,6 +161,14 @@ public class MailboxCache<T> implements Serializable {
 
     public void setToOrderByDate(boolean toOrderByDate) {
         this.toOrderByDate = toOrderByDate;
+    }
+
+    public boolean isRemoved() {
+        return removed;
+    }
+
+    public void setRemoved(boolean removed) {
+        this.removed = removed;
     }
 
     @Override

@@ -1,12 +1,12 @@
 package central.mail.cache;
 
 
-import bee.configuracion.Configuracion;
-import bee.registry.Registry;
-import bee.result.Result;
-import bee.serviceregistry.Modules;
-import bee.session.ExecutionContext;
 import central.mail.cache.model.*;
+import cognitivesolutions.configuracion.Configuracion;
+import cognitivesolutions.registry.Registry;
+import cognitivesolutions.result.Result;
+import cognitivesolutions.serviceregistry.Modules;
+import cognitivesolutions.session.RequestCommand;
 import org.apache.james.mime4j.message.DefaultMessageBuilder;
 import org.apache.james.mime4j.stream.Field;
 import org.apache.james.mime4j.stream.MimeConfig;
@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 public class CacheTest {
     private static ICacheFacade facade;
-    private static ExecutionContext rc = new ExecutionContext();
+    private static RequestCommand rc = new RequestCommand();
 
     private static final MimeConfig MIME_ENTITY_CONFIG = MimeConfig.custom()
             .setMaxContentLen(-1)
@@ -198,7 +198,7 @@ public class CacheTest {
 
     }
 
-    @Test
+
     public void loadMessages() throws Exception {
 
         //leo todos los archivos del folder
@@ -306,7 +306,7 @@ public class CacheTest {
         }
     }
 
-    @Test
+
     public void selectMailboxWithMails() throws Exception {
         this.recoverUserCache();
         var i = 1;
@@ -322,7 +322,7 @@ public class CacheTest {
 
     }
 
-    @Test
+
     public void selectMailboxWithMailsOrdered() throws Exception {
         this.recoverUserCache();
         var i = 1;
@@ -330,13 +330,13 @@ public class CacheTest {
         facade.selectMailbox("inbox", rc);
     }
 
-    @Test
+
     public void releaseUserCache() throws Exception {
         this.loadMessages();
         facade.releaseUserCache(rc);
     }
 
-    @Test
+
     public void recoverUserCache() throws Exception {
         facade.recoverUserCache(rc);
     }
@@ -1703,64 +1703,4 @@ public class CacheTest {
         assert (messageFetchNo == null);
     }
 
-
-    /**
-     * tres mensajes, dos thread, cargo 1 y 2, separados, seen, cargo 3, unseen
-     */
-
-    @Test
-    public void threadsTestCase28Online() throws Exception {
-        threadsTestCase28(true);
-    }
-
-    @Test
-    public void threadsTestCase28Offline() throws Exception {
-        threadsTestCase28(false);
-    }
-
-
-    public void threadsTestCase28(boolean online) throws Exception {
-        var mailbox1 = this.makeMailbox("inbox");
-        facade.addMailbox(mailbox1, rc);
-
-
-        var m1 = buildMessage(mailbox1.getId(), "m1");
-        m1.setMessageDate(1l);
-
-
-        if (online) {
-            facade.addMessage(m1, rc);
-        } else {
-            facade.addMessageNoSync(m1, rc);
-            facade.processThreads(rc);
-        }
-
-        var threads = facade.selectMailbox("inbox", rc);
-        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
-        assert (selected1.getThreadsByGid().size() == 2);
-
-        var thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
-        assert (thread != null);
-        assert (thread.getMessages().size() == 1);
-
-        assert (selected1.getTotal().get() == 1l);
-        assert (selected1.getUnseen().get() == 0l);
-
-        // update los flags del mensaje
-
-
-
-        threads = facade.selectMailbox("inbox", Sort.DATE, SortType.DESC, rc);
-        selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
-        assert (selected1.getThreadsByGid().size() == 2);
-
-        thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
-        assert (thread != null);
-        assert (thread.getMessages().size() == 2);
-
-        assert (selected1.getTotal().get() == 2l);
-        assert (selected1.getUnseen().get() == 1l);
-        assert ((thread.getFlags() & MessageCache.UNSEEN) > 0);
-
-    }
 }

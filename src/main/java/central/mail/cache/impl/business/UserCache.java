@@ -1,11 +1,11 @@
 package central.mail.cache.impl.business;
 
 
-import bee.error.BusinessException;
-import bee.result.Result;
-import bee.session.ExecutionContext;
 import central.mail.cache.errors.MailboxNotFoundError;
 import central.mail.cache.model.*;
+import cognitivesolutions.error.BusinessException;
+import cognitivesolutions.result.Result;
+import cognitivesolutions.session.RequestCommand;
 import com.googlecode.cqengine.ConcurrentIndexedCollection;
 import com.googlecode.cqengine.IndexedCollection;
 import com.googlecode.cqengine.attribute.Attribute;
@@ -20,9 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
-import static bee.result.Result.error;
-import static bee.result.Result.ok;
+
+import static cognitivesolutions.result.Result.error;
+import static cognitivesolutions.result.Result.ok;
 import static com.googlecode.cqengine.query.QueryFactory.and;
 import static com.googlecode.cqengine.query.QueryFactory.equal;
 import static com.googlecode.cqengine.query.QueryFactory.in;
@@ -382,8 +384,8 @@ public class UserCache {
         this.lastRefresh = lastRefresh;
     }
 
-    public List<MailboxCache> getMailboxes() {
-        return new ArrayList(this.mailboxes);
+    public List<MailboxCache<UUID>> getMailboxes() {
+        return new ArrayList<MailboxCache<UUID>>(this.mailboxes).stream().filter(x -> !x.isRemoved()).collect(Collectors.toList());
     }
 
     public Result<MailboxCache<UUID>> getMailboxByName(String name) {
@@ -395,14 +397,24 @@ public class UserCache {
             if (rs.isEmpty()) {
                 return error(new MailboxNotFoundError());
             }
-            var res = (MailboxCache) rs.iterator().next();
-            if (res == null) {
-                return error(new MailboxNotFoundError());
+            var it = rs.iterator();
+            while (it.hasNext()) {
+                var res = (MailboxCache<UUID>) it.next();
+                if (res == null) {
+                    return error(new MailboxNotFoundError());
+                }
+                if (res.isRemoved()) {
+                    continue;
+                }
+                return ok(res);
             }
-            return ok(res);
+
+
         } finally {
             rs.close();
         }
+
+        return error(new MailboxNotFoundError());
     }
 
     public MailboxCache<UUID> getMailboxById(UUID id) {
@@ -422,7 +434,7 @@ public class UserCache {
     }
 
 
-    public Result<Iterator<MessageCache<UUID, UUID>>> fetchMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<Iterator<MessageCache<UUID, UUID>>> fetchMessagesInMailboxByName(String name, RequestCommand ec) throws BusinessException {
         var mailbox = this.getMailboxByName(name);
         if (mailbox.isError()) {
             return error(mailbox.getErrores());
@@ -669,4 +681,8 @@ public class UserCache {
         }
     }
 
+    public void removeMailbox(MailboxCache<UUID> mailbox) {
+        var currentMailbox = getMailboxById(mailbox.getId());
+        currentMailbox.setRemoved(true);
+    }
 }

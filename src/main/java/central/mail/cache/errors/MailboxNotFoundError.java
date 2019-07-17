@@ -1,6 +1,5 @@
 package central.mail.cache.errors;
 
-import bee.error.Error;
 
-public class MailboxNotFoundError extends Error {
+public class MailboxNotFoundError extends cognitivesolutions.result.Error {
 }

@@ -1,14 +1,16 @@
 package central.mail.cache.impl.business;
 
-import bee.configuration.IConfiguration;
-import bee.error.BusinessException;
-import bee.error.IExceptionHandler;
-import bee.result.Result;
-import bee.session.ExecutionContext;
+
 import central.mail.cache.business.ICacheBusiness;
 import central.mail.cache.model.*;
+import cognitivesolutions.configuration.IConfiguration;
+import cognitivesolutions.error.BusinessException;
+import cognitivesolutions.error.IExceptionHandler;
+import cognitivesolutions.result.Result;
+import cognitivesolutions.session.RequestCommand;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import graphql.execution.ExecutionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,9 +22,10 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-import static bee.result.Result.ok;
+
 import static central.mail.cache.model.SortType.ASC;
 import static central.mail.cache.model.SortType.DESC;
+import static cognitivesolutions.result.Result.ok;
 
 
 @Singleton
@@ -57,7 +60,7 @@ public class CacheBusiness implements ICacheBusiness {
         }
     }
 
-    private ReentrantLock getLock(ExecutionContext rc) throws BusinessException {
+    private ReentrantLock getLock(RequestCommand rc) throws BusinessException {
         ReentrantLock res = this.cacheLocks.get(rc.getUserGuid());
         if (res == null) {
             try {
@@ -79,7 +82,7 @@ public class CacheBusiness implements ICacheBusiness {
         return res;
     }
 
-    private UserCache getUserCache(boolean create, boolean refresh, ExecutionContext<UUID, UUID> requestCommand) throws BusinessException {
+    private UserCache getUserCache(boolean create, boolean refresh, RequestCommand requestCommand) throws BusinessException {
         Long start = (System.currentTimeMillis());
         UserCache res = null;
 
@@ -143,7 +146,7 @@ public class CacheBusiness implements ICacheBusiness {
         return res;
     }
 
-    public void forceRefresh(ExecutionContext<UUID, UUID> requestCommand) throws BusinessException {
+    public void forceRefresh(RequestCommand requestCommand) throws BusinessException {
 
         ReentrantLock lock = null;
 
@@ -167,80 +170,86 @@ public class CacheBusiness implements ICacheBusiness {
     }
 
     @Override
-    public Result<List<MailboxCache>> fetchMailboxes(ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<List<MailboxCache<UUID>>> fetchMailboxes(RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return ok(userCache.getMailboxes());
     }
 
     @Override
-    public Result<MailboxCache<UUID>> fetchMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<MailboxCache<UUID>> fetchMailboxByName(String name, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return userCache.getMailboxByName(name);
     }
 
     @Override
-    public void addMailbox(MailboxCache mailbox, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public void addMailbox(MailboxCache mailbox, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         userCache.addMailbox(mailbox);
     }
 
     @Override
-    public void addMessage(MessageCache<UUID, UUID> message, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public void removeMailbox(MailboxCache mailbox, RequestCommand ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        userCache.removeMailbox(mailbox);
+    }
+
+    @Override
+    public void addMessage(MessageCache<UUID, UUID> message, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         userCache.add(message);
     }
 
     @Override
-    public void addMessageNoSync(MessageCache<UUID, UUID> message, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public void addMessageNoSync(MessageCache<UUID, UUID> message, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         userCache.addNoSync(message);
     }
 
     @Override
-    public synchronized void processThreads(ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public synchronized void processThreads(RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         userCache.processThreads();
     }
 
 
     @Override
-    public Result<Iterator<MessageCache<UUID, UUID>>> fetchMessagesInMailboxByName(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<Iterator<MessageCache<UUID, UUID>>> fetchMessagesInMailboxByName(String name, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return userCache.fetchMessagesInMailboxByName(name, ec);
     }
 
     @Override
-    public Result<Integer> getThreadsCount(ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<Integer> getThreadsCount(RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return ok(userCache.getThreadsCount());
     }
 
     @Override
-    public Result<Integer> getMessagesCount(ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<Integer> getMessagesCount(RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return ok(userCache.getMessagesCount());
     }
 
     @Override
-    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return userCache.selectMailbox(name, Sort.DATE, DESC);
     }
 
     @Override
-    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return userCache.selectMailbox(name, sort, sortType);
     }
 
     @Override
-    public Result<ThreadMessageCache<UUID>> fetchThreadMessageByGid(UUID gid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<ThreadMessageCache<UUID>> fetchThreadMessageByGid(UUID gid, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return ok(userCache.fetchThreadMessageByGid(gid));
     }
 
     @Override
-    public void releaseUserCache(ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public void releaseUserCache(RequestCommand ec) throws BusinessException {
 
         // debe estar en lock pq se elimina la data del usuario del mapa de usuarios
 
@@ -288,7 +297,7 @@ public class CacheBusiness implements ICacheBusiness {
     }
 
     @Override
-    public void recoverUserCache(ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public void recoverUserCache(RequestCommand ec) throws BusinessException {
         // debe estar en lock pq se elimina la data del usuario del mapa de usuarios
 
         var file = new File("./data/file");
@@ -339,13 +348,13 @@ public class CacheBusiness implements ICacheBusiness {
     }
 
     @Override
-    public Result<MessageCache<UUID, UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public Result<MessageCache<UUID, UUID>> fetchMessageByGid(UUID messageGid, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return ok(userCache.getMessageById(messageGid));
     }
 
     @Override
-    public MessageCache<UUID, UUID> fetchMessageByMailboxIdAndUid(UUID mailboxGid, Long uid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+    public MessageCache<UUID, UUID> fetchMessageByMailboxIdAndUid(UUID mailboxGid, Long uid, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return userCache.getMessageByMailboxIdAndUid(mailboxGid, uid);
     }
