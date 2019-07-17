@@ -92,6 +92,7 @@ public class UserCache {
         }
     };
 
+
     public static final Attribute<ThreadMessageIdCache<UUID>, String> MESSAGEIDTHREAD_MESSAGEID = new SimpleAttribute<ThreadMessageIdCache<UUID>, String>("messageId") {
         @Override
         public String getValue(ThreadMessageIdCache<UUID> o, QueryOptions queryOptions) {
@@ -298,19 +299,7 @@ public class UserCache {
         threadByMessageGid.put(message.getGid(), thread.getGid());
 
         if (syncAllFlags) {
-            thread.setFlags(0l);
-            thread.setExpunged(true);
-            for (var messageGidInThread : thread.getMessages()) {
-                var messageInThread = this.getMessageById(messageGidInThread);
-                if (messageInThread != null) {
-                    thread.setExpunged(thread.isExpunged() && messageInThread.isExpunged());
-                    if (!messageInThread.isExpunged()) {
-                        thread.setFlags(thread.getFlags() | messageInThread.getFlags());
-                    }
-
-                }
-            }
-
+            syncThreadFlags(thread);
         } else {
             thread.setFlags(thread.getFlags() | message.getFlags());
             thread.setExpunged(thread.isExpunged() && message.isExpunged());
@@ -340,6 +329,20 @@ public class UserCache {
         if (syncMailboxThreads) {
             this.selectedMailboxesByMailboxGid.remove(message.getMailboxGid());
             this.addMailboxThread(thread, message);
+        }
+    }
+
+    private void syncThreadFlags(ThreadMessageCache<UUID> thread) {
+        thread.setFlags(0l);
+        thread.setExpunged(true);
+        for (var messageGidInThread : thread.getMessages()) {
+            var messageInThread = this.getMessageById(messageGidInThread);
+            if (messageInThread != null) {
+                if (!messageInThread.isExpunged()) {
+                    thread.setExpunged(false);
+                    thread.setFlags(thread.getFlags() | messageInThread.getFlags());
+                }
+            }
         }
     }
 
@@ -529,19 +532,19 @@ public class UserCache {
     }
 
 
-    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType) throws BusinessException {
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, FilterType filterType) throws BusinessException {
         // consultar el mailbox por nombre
         var mailbox = this.getMailboxByName(name);
         if (mailbox.isError()) {
             return error(mailbox.getErrores());
         }
-        return this.selectMailbox(mailbox.ok(), sort, sortType);
+        return this.selectMailbox(mailbox.ok(), sort, sortType, filterType);
     }
 
-    public Result<SelectedMailboxCache<UUID>> selectMailbox(MailboxCache<UUID> mailbox, Sort sort, SortType sortType) {
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(MailboxCache<UUID> mailbox, Sort sort, SortType sortType, FilterType filterType) {
         //saber si debo volver a procesar todo el cache
         var selectedMailbox = this.selectedMailboxesByMailboxGid.get(mailbox.getId());
-        if (selectedMailbox != null) {
+        if (selectedMailbox != null && selectedMailbox.getFilterType().equals(filterType)) {
             // debo refrescar el selected?
             return ok(selectedMailbox);
         }
@@ -551,7 +554,7 @@ public class UserCache {
 
             selectedMailbox = this.selectedMailboxesByMailboxGid.get(mailbox.getId());
 
-            if (selectedMailbox != null) {
+            if (selectedMailbox != null && selectedMailbox.getFilterType().equals(filterType)) {
                 // debo refrescar el selected?
                 return ok(selectedMailbox);
             }
@@ -579,6 +582,21 @@ public class UserCache {
                         if (thread.isExpunged()) {
                             continue;
                         }
+
+                        //verifico los filter
+                        switch (filterType) {
+                            case UNSEEN:
+                                if ((thread.getFlags() & MessageCache.SEEN) != 0l) {
+                                    continue;
+                                }
+                                break;
+                            case FLAGGED:
+                                if ((thread.getFlags() & MessageCache.FLAGGED) != 0l) {
+                                    continue;
+                                }
+                                break;
+                        }
+
 
                         if (!gids.contains(thread.getGid())) {
                             gids.add(thread.getGid());
@@ -616,7 +634,7 @@ public class UserCache {
                             threads.add(orderedThread);
 
                             //contadores
-                            if ((thread.getFlags() & MessageCache.UNSEEN) > 0l) {
+                            if ((thread.getFlags() & MessageCache.SEEN) == 0l) {
                                 threadsUnSeen++;
                             }
                             totalThreads++;
@@ -658,6 +676,7 @@ public class UserCache {
             System.out.println("mailbox threads: " + threads.size());
 
             selectedMailbox = new SelectedMailboxCache<>(mailbox, first, threadsByGid);
+            selectedMailbox.setFilterType(filterType);
             selectedMailbox.setTotal(new AtomicLong(totalThreads));
             selectedMailbox.setUnseen(new AtomicLong(threadsUnSeen));
             this.selectedMailboxesByMailboxGid.put(mailbox.getId(), selectedMailbox);
@@ -669,4 +688,69 @@ public class UserCache {
         }
     }
 
+    public void updateMessageFlags(UUID gid, long flags) {
+        // obtengo el mensaje,
+        var message = this.getMessageById(gid);
+        if (message == null) {
+            return;
+        }
+        // actualizo los flags del mensaje,
+        message.setFlags(flags);
+        // obtengo el thread donde esta el mensaje
+
+        var threadGid = this.threadByMessageGid.get(message.getGid());
+        if (threadGid == null) {
+            return;
+        }
+
+        var threadResponse = this.fetchThreadMessageByGid(threadGid);
+
+        if (threadResponse == null) {
+            return;
+        }
+
+        syncThreadFlags(threadResponse);
+
+        // remuevo los selected de los mailboxes donde esta el thread
+        var threadsInMailboxRs = this.mailboxThreads.retrieve(equal(MAILBOXTHREAD_GID, threadResponse.getGid()));
+        if (threadsInMailboxRs != null) {
+            var it = threadsInMailboxRs.iterator();
+            while (it.hasNext()) {
+                this.selectedMailboxesByMailboxGid.remove(it.next().getMailboxGid());
+            }
+        }
+    }
+
+    public void expungeMessage(UUID gid) {
+        // obtengo el mensaje,
+        var message = this.getMessageById(gid);
+        if (message == null) {
+            return;
+        }
+        // actualizo los flags del mensaje,
+        message.setExpunged(true);
+        // obtengo el thread donde esta el mensaje
+
+        var threadGid = this.threadByMessageGid.get(message.getGid());
+        if (threadGid == null) {
+            return;
+        }
+
+        var threadResponse = this.fetchThreadMessageByGid(threadGid);
+
+        if (threadResponse == null) {
+            return;
+        }
+
+        syncThreadFlags(threadResponse);
+
+        // remuevo los selected de los mailboxes donde esta el thread
+        var threadsInMailboxRs = this.mailboxThreads.retrieve(equal(MAILBOXTHREAD_GID, threadResponse.getGid()));
+        if (threadsInMailboxRs != null) {
+            var it = threadsInMailboxRs.iterator();
+            while (it.hasNext()) {
+                this.selectedMailboxesByMailboxGid.remove(it.next().getMailboxGid());
+            }
+        }
+    }
 }

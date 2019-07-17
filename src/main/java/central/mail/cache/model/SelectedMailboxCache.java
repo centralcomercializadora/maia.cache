@@ -12,6 +12,7 @@ public class SelectedMailboxCache<T> {
     Map<UUID, OrderedThreadCache<UUID>> threadsByGid;
     private AtomicLong total = new AtomicLong();
     private AtomicLong unseen = new AtomicLong();
+    private FilterType filterType;
 
     public SelectedMailboxCache(MailboxCache<T> mailbox, OrderedThreadCache<UUID> first, Map<UUID, OrderedThreadCache<UUID>> threadsByGid) {
         this.mailbox = mailbox;
@@ -57,5 +58,13 @@ public class SelectedMailboxCache<T> {
 
     public void setUnseen(AtomicLong unseen) {
         this.unseen = unseen;
+    }
+
+    public FilterType getFilterType() {
+        return filterType;
+    }
+
+    public void setFilterType(FilterType filterType) {
+        this.filterType = filterType;
     }
 }

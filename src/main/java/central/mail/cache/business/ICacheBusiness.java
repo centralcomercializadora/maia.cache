@@ -32,7 +32,11 @@ public interface ICacheBusiness {
 
     Result<SelectedMailboxCache<UUID>> selectMailbox(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
+    Result<SelectedMailboxCache<UUID>> selectMailbox(String name, FilterType filterType, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
     Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
+    Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, FilterType filterType, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
     Result<ThreadMessageCache<UUID>> fetchThreadMessageByGid(UUID gid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
@@ -43,4 +47,8 @@ public interface ICacheBusiness {
     Result<MessageCache<UUID, UUID>> fetchMessageByGid(UUID messageGid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 
     MessageCache<UUID, UUID> fetchMessageByMailboxIdAndUid(UUID mailboxGid, Long uid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
+    void updateMessageFlags(UUID gid, long flags, ExecutionContext<UUID, UUID> ec) throws BusinessException;
+
+    void expungeMessage(UUID gid, ExecutionContext<UUID, UUID> ec) throws BusinessException;
 }

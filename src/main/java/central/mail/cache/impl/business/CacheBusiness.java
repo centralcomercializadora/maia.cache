@@ -224,13 +224,25 @@ public class CacheBusiness implements ICacheBusiness {
     @Override
     public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
-        return userCache.selectMailbox(name, Sort.DATE, DESC);
+        return userCache.selectMailbox(name, Sort.DATE, DESC, FilterType.ALL);
+    }
+
+    @Override
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, FilterType filterType, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        return userCache.selectMailbox(name, Sort.DATE, DESC, filterType);
     }
 
     @Override
     public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
-        return userCache.selectMailbox(name, sort, sortType);
+        return userCache.selectMailbox(name, sort, sortType, FilterType.ALL);
+    }
+
+    @Override
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, FilterType filterType, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        return userCache.selectMailbox(name, sort, sortType, filterType);
     }
 
     @Override
@@ -348,6 +360,18 @@ public class CacheBusiness implements ICacheBusiness {
     public MessageCache<UUID, UUID> fetchMessageByMailboxIdAndUid(UUID mailboxGid, Long uid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return userCache.getMessageByMailboxIdAndUid(mailboxGid, uid);
+    }
+
+    @Override
+    public void updateMessageFlags(UUID gid, long flags, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        userCache.updateMessageFlags(gid, flags);
+    }
+
+    @Override
+    public void expungeMessage(UUID gid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        userCache.expungeMessage(gid);
     }
 }
 

@@ -110,4 +110,28 @@ public class CacheFacade implements ICacheFacade {
         var business = Registry.getInstance(ICacheBusiness.class);
         return business.fetchMessageByMailboxIdAndUid(mailboxGid, uid, ec);
     }
+
+    @Override
+    public void updateMessageFlags(UUID gid, long flags, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.updateMessageFlags(gid, flags, ec);
+    }
+
+    @Override
+    public void expungeMessage(UUID gid, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.expungeMessage(gid, ec);
+    }
+
+    @Override
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, FilterType filterType, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.selectMailbox(name, filterType, ec);
+    }
+
+    @Override
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, FilterType filterType, ExecutionContext<UUID, UUID> ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.selectMailbox(name, sort, sortType, filterType, ec);
+    }
 }
