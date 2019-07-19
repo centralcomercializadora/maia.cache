@@ -13,7 +13,6 @@ public class MessageCache<K, T> implements Serializable {
     public final static long DRAFT = (long) 0b000000010000;
     public final static long RECENT = (long) 0b000000100000;
     public final static long UNSEEN = (long) 0b000001000000;
-    public final static long UNANSWERED = (long) 0b000010000000;
 
     private K gid;
     private T mailboxGid;

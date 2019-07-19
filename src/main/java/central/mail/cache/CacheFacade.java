@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.UUID;
 
 
-
 public class CacheFacade implements ICacheFacade {
     @Override
     public Result<List<MailboxCache<UUID>>> fetchMailboxes(RequestCommand rc) throws BusinessException {
@@ -70,15 +69,15 @@ public class CacheFacade implements ICacheFacade {
     }
 
     @Override
-    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, RequestCommand rc) throws BusinessException {
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, RequestCommand rc) throws BusinessException {
         var business = Registry.getInstance(ICacheBusiness.class);
-        return business.selectMailbox(name, rc);
+        return business.selectMailbox(selectType, name, rc);
     }
 
     @Override
-    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, RequestCommand rc) throws BusinessException {
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, Sort sort, SortType sortType, RequestCommand rc) throws BusinessException {
         var business = Registry.getInstance(ICacheBusiness.class);
-        return business.selectMailbox(name, sort, sortType, rc);
+        return business.selectMailbox(selectType, name, sort, sortType, rc);
     }
 
     @Override
@@ -116,4 +115,54 @@ public class CacheFacade implements ICacheFacade {
         var business = Registry.getInstance(ICacheBusiness.class);
         return business.fetchMessageByMailboxIdAndUid(mailboxGid, uid, rc);
     }
+
+    @Override
+    public void updateMessageFlags(UUID gid, long flags, RequestCommand ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.updateMessageFlags(gid, flags, ec);
+    }
+
+    @Override
+    public void expungeMessage(UUID gid, RequestCommand ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.expungeMessage(gid, ec);
+    }
+
+    @Override
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, FilterType filterType, RequestCommand ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.selectMailbox(selectType, name, filterType, ec);
+    }
+
+    @Override
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, Sort sort, SortType sortType, FilterType filterType, RequestCommand ec) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.selectMailbox(selectType, name, sort, sortType, filterType, ec);
+    }
+
+    @Override
+    public Result<Long> getLastRefreshCache(RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.getLastRefreshCache(rc);
+
+    }
+
+    @Override
+    public void setLastRefreshCache(Long time, RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.setLastRefreshCache(time, rc);
+    }
+
+    @Override
+    public Result<MailboxCache<UUID>> fetchMailboxById(UUID mailboxId, RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.fetchMailboxById(mailboxId, rc);
+    }
+
+    @Override
+    public ThreadMessageCache<UUID> fetchThreadByMessageGid(UUID gid, RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.fetchThreadByMessageGid(gid, rc);
+    }
+
 }

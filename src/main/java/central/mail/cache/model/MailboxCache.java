@@ -16,8 +16,6 @@ public class MailboxCache<T> implements Serializable {
     private boolean toOrderByUid = false;
     private boolean toOrderByDate = false;
     private Long uidNext;
-    private Long lastModSeq;
-    private Long lastUidNext;
     private boolean removed = false;
 
     public T getId() {
@@ -60,36 +58,6 @@ public class MailboxCache<T> implements Serializable {
         this.recent = recent;
     }
 
-    private synchronized void updateCount(Long flags, boolean increment, boolean countTotal) {
-
-        if (countTotal) {
-            if (increment) {
-                total.incrementAndGet();
-            } else {
-                total.decrementAndGet();
-            }
-        }
-
-        if (flags != null) {
-            if ((MessageCache.UNSEEN & flags.longValue()) == MessageCache.UNSEEN) {
-                if (increment) {
-                    unseen.incrementAndGet();
-                } else {
-                    unseen.decrementAndGet();
-                }
-            }
-
-            if ((MessageCache.RECENT & flags.longValue()) == MessageCache.RECENT) {
-                if (increment) {
-                    recent.incrementAndGet();
-                } else {
-                    recent.decrementAndGet();
-                }
-            }
-        }
-
-    }
-
 
     public Long getModseq() {
         return modseq;
@@ -105,22 +73,6 @@ public class MailboxCache<T> implements Serializable {
 
     public Long getUidNext() {
         return uidNext;
-    }
-
-    public Long getLastModSeq() {
-        return lastModSeq;
-    }
-
-    public void setLastModSeq(Long lastModSeq) {
-        this.lastModSeq = lastModSeq;
-    }
-
-    public Long getLastUidNext() {
-        return lastUidNext;
-    }
-
-    public void setLastUidNext(Long lastUidNext) {
-        this.lastUidNext = lastUidNext;
     }
 
     public long getUidValidity() {
@@ -184,10 +136,8 @@ public class MailboxCache<T> implements Serializable {
                 ", modseq=" + modseq +
                 ", toOrderByUid=" + toOrderByUid +
                 ", toOrderByDate=" + toOrderByDate +
-                ", uidNext=" + uidNext +
-                ", lastModSeq=" + lastModSeq +
-                ", lastUidNext=" + lastUidNext +
-                '}';
+                ", uidNext=" + uidNext
+                + '}';
     }
 }
 

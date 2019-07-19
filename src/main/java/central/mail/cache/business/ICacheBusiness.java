@@ -31,9 +31,15 @@ public interface ICacheBusiness {
 
     Result<Integer> getMessagesCount(RequestCommand ec) throws BusinessException;
 
-    Result<SelectedMailboxCache<UUID>> selectMailbox(String name, RequestCommand ec) throws BusinessException;
+    Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, RequestCommand ec) throws BusinessException;
 
-    Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, RequestCommand ec) throws BusinessException;
+    Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, FilterType filterType, RequestCommand ec) throws BusinessException;
+
+    Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, Sort sort, SortType sortType, RequestCommand ec) throws BusinessException;
+
+
+    Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, Sort sort, SortType sortType, FilterType filterType, RequestCommand ec) throws BusinessException;
+
 
     Result<ThreadMessageCache<UUID>> fetchThreadMessageByGid(UUID gid, RequestCommand ec) throws BusinessException;
 
@@ -43,7 +49,19 @@ public interface ICacheBusiness {
 
     Result<MessageCache<UUID, UUID>> fetchMessageByGid(UUID messageGid, RequestCommand ec) throws BusinessException;
 
+    void updateMessageFlags(UUID gid, long flags, RequestCommand ec) throws BusinessException;
+
+    void expungeMessage(UUID gid, RequestCommand ec) throws BusinessException;
+
     MessageCache<UUID, UUID> fetchMessageByMailboxIdAndUid(UUID mailboxGid, Long uid, RequestCommand ec) throws BusinessException;
 
     void removeMailbox(MailboxCache<UUID> mailbox, RequestCommand rc) throws BusinessException;
+
+    Result<Long> getLastRefreshCache(RequestCommand rc) throws BusinessException;
+
+    void setLastRefreshCache(Long time, RequestCommand rc) throws BusinessException;
+
+    Result<MailboxCache<UUID>> fetchMailboxById(UUID mailboxId, RequestCommand rc) throws BusinessException;
+
+    ThreadMessageCache<UUID> fetchThreadByMessageGid(UUID gid, RequestCommand rc) throws BusinessException;
 }

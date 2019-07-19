@@ -2,6 +2,7 @@ package central.mail.cache.impl.business;
 
 
 import central.mail.cache.business.ICacheBusiness;
+import central.mail.cache.errors.MailboxNotFoundError;
 import central.mail.cache.model.*;
 import cognitivesolutions.configuration.IConfiguration;
 import cognitivesolutions.error.BusinessException;
@@ -25,6 +26,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import static central.mail.cache.model.SortType.ASC;
 import static central.mail.cache.model.SortType.DESC;
+import static cognitivesolutions.result.Result.error;
 import static cognitivesolutions.result.Result.ok;
 
 
@@ -231,15 +233,44 @@ public class CacheBusiness implements ICacheBusiness {
     }
 
     @Override
-    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, RequestCommand ec) throws BusinessException {
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
-        return userCache.selectMailbox(name, Sort.DATE, DESC);
+        if (selectType.equals(SelectType.THREADS)) {
+            return userCache.selectMailbox(name, Sort.DATE, DESC, FilterType.ALL);
+        } else {
+            return userCache.selectMailboxMessages(name, Sort.DATE, DESC, FilterType.ALL);
+        }
+
     }
 
     @Override
-    public Result<SelectedMailboxCache<UUID>> selectMailbox(String name, Sort sort, SortType sortType, RequestCommand ec) throws BusinessException {
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, FilterType filterType, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
-        return userCache.selectMailbox(name, sort, sortType);
+        if (selectType.equals(SelectType.THREADS)) {
+            return userCache.selectMailbox(name, Sort.DATE, DESC, filterType);
+        } else {
+            return userCache.selectMailboxMessages(name, Sort.DATE, DESC, FilterType.ALL);
+        }
+    }
+
+    @Override
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, Sort sort, SortType sortType, RequestCommand ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        if (selectType.equals(SelectType.THREADS)) {
+            return userCache.selectMailbox(name, sort, sortType, FilterType.ALL);
+        } else {
+            return userCache.selectMailboxMessages(name, Sort.DATE, DESC, FilterType.ALL);
+        }
+    }
+
+    @Override
+    public Result<SelectedMailboxCache<UUID>> selectMailbox(SelectType selectType, String name, Sort sort, SortType sortType, FilterType filterType, RequestCommand ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        if (selectType.equals(SelectType.THREADS)) {
+            return userCache.selectMailbox(name, sort, sortType, filterType);
+        } else {
+            return userCache.selectMailboxMessages(name, Sort.DATE, DESC, FilterType.ALL);
+        }
     }
 
     @Override
@@ -357,6 +388,52 @@ public class CacheBusiness implements ICacheBusiness {
     public MessageCache<UUID, UUID> fetchMessageByMailboxIdAndUid(UUID mailboxGid, Long uid, RequestCommand ec) throws BusinessException {
         var userCache = this.getUserCache(true, false, ec);
         return userCache.getMessageByMailboxIdAndUid(mailboxGid, uid);
+    }
+
+    @Override
+    public void updateMessageFlags(UUID gid, long flags, RequestCommand ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        userCache.updateMessageFlags(gid, flags);
+    }
+
+    @Override
+    public void expungeMessage(UUID gid, RequestCommand ec) throws BusinessException {
+        var userCache = this.getUserCache(true, false, ec);
+        userCache.expungeMessage(gid);
+    }
+
+    @Override
+    public Result<Long> getLastRefreshCache(RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(false, false, rc);
+        if (userCache == null) {
+            return ok(null);
+        }
+
+        return ok(userCache.getLastRefresh());
+    }
+
+    @Override
+    public void setLastRefreshCache(Long time, RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(true, false, rc);
+        if (userCache != null) {
+            userCache.setLastRefresh(time);
+        }
+    }
+
+    @Override
+    public Result<MailboxCache<UUID>> fetchMailboxById(UUID mailboxId, RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(true, false, rc);
+        if (userCache != null) {
+            return ok(userCache.getMailboxById(mailboxId));
+        } else {
+            return error(new MailboxNotFoundError());
+        }
+    }
+
+    @Override
+    public ThreadMessageCache<UUID> fetchThreadByMessageGid(UUID gid, RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(true, false, rc);
+        return userCache.fetchThreadByMessageGid(gid);
     }
 }
 
