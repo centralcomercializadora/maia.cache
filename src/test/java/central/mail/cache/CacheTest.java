@@ -1002,7 +1002,7 @@ public class CacheTest {
 
         var m1 = buildMessage(mailbox1.getId(), "m1");
         m1.setMessageDate(2l);
-        m1.setFlags(MessageCache.RECENT);
+        m1.setFlags(MessageCache.RECENT | MessageCache.FLAGGED);
 
 
         if (online) {
@@ -1019,6 +1019,7 @@ public class CacheTest {
         var first = result.getFirst();
         assert (first != null && first.getMessageGid().equals(m1.getGid()));
         assert ((((ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(first.getThreadGid(), rc).ok()).getFlags() & MessageCache.RECENT) != 0);
+        assert ((((ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(first.getThreadGid(), rc).ok()).getFlags() & MessageCache.FLAGGED) != 0);
     }
 
     /**
@@ -1996,6 +1997,55 @@ public class CacheTest {
         assert (selected1.getThreadsByGid().size() == 0);
         assert (selected1.getTotal().get() == 0l);
         assert (selected1.getUnseen().get() == 0l);
+
+    }
+
+    /**
+     * un mensaje un thread, filtro flagged
+     */
+
+    @Test
+    public void threadsTestCase33Online() throws Exception {
+        threadsTestCase33(true);
+    }
+
+    @Test
+    public void threadsTestCase33Offline() throws Exception {
+        threadsTestCase33(false);
+    }
+
+
+    public void threadsTestCase33(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(1l);
+        m1.setFlags(MessageCache.FLAGGED);
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.processThreads(rc);
+        }
+
+        var threads = facade.selectMailbox(SelectType.THREADS, "inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+
+        assert (selected1.getThreadsByGid().size() == 1);
+        assert (selected1.getTotal().get() == 1l);
+        assert (selected1.getUnseen().get() == 1l);
+
+
+        threads = facade.selectMailbox(SelectType.THREADS, "inbox", Sort.DATE, SortType.DESC, FilterType.FLAGGED, rc);
+        selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getFirst() != null);
+        assert (selected1.getThreadsByGid().size() != 0);
+        assert (selected1.getTotal().get() == 1l);
+        assert (selected1.getUnseen().get() == 1l);
 
     }
 }

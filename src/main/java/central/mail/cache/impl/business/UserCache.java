@@ -619,7 +619,7 @@ public class UserCache {
                                 }
                                 break;
                             case FLAGGED:
-                                if ((thread.getFlags() & MessageCache.FLAGGED) != 0l) {
+                                if ((thread.getFlags() & MessageCache.FLAGGED) == 0l) {
                                     continue;
                                 }
                                 break;
@@ -853,7 +853,7 @@ public class UserCache {
                                 }
                                 break;
                             case FLAGGED:
-                                if ((message.getFlags() & MessageCache.FLAGGED) != 0l) {
+                                if ((message.getFlags() & MessageCache.FLAGGED) == 0l) {
                                     continue;
                                 }
                                 break;
