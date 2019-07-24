@@ -59,4 +59,8 @@ public interface ICacheFacade {
     Result<MailboxCache<UUID>> fetchMailboxById(UUID mailboxId, RequestCommand rc) throws BusinessException;
 
     ThreadMessageCache<UUID> fetchThreadByMessageGid(UUID gid, RequestCommand rc) throws BusinessException;
+
+    void restoreFromFile(String file, RequestCommand rc) throws BusinessException;
+
+    void saveToFile(String path, RequestCommand rc) throws BusinessException;
 }

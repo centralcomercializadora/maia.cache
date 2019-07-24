@@ -165,4 +165,17 @@ public class CacheFacade implements ICacheFacade {
         return business.fetchThreadByMessageGid(gid, rc);
     }
 
+    @Override
+    public void restoreFromFile(String file, RequestCommand rc) throws BusinessException{
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.restoreFromFile(file, rc);
+    }
+
+
+    @Override
+    public void saveToFile(String path, RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.saveToFile(path, rc);
+    }
+
 }

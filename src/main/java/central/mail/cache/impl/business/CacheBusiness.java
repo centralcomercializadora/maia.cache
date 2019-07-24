@@ -282,49 +282,7 @@ public class CacheBusiness implements ICacheBusiness {
     @Override
     public void releaseUserCache(RequestCommand ec) throws BusinessException {
 
-        // debe estar en lock pq se elimina la data del usuario del mapa de usuarios
 
-        var file = new File("./data/file");
-
-        FileOutputStream fos = null;
-        ObjectOutputStream oos = null;
-        try {
-
-            if (!file.exists()) {
-                file.createNewFile();
-            }
-
-            fos = new FileOutputStream(file, false);
-            oos = new ObjectOutputStream(fos);
-
-            oos.writeObject(this.getUserCache(true, false, ec).toStore());
-
-            oos.close();
-            fos.close();
-
-            oos = null;
-            fos = null;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (fos != null) {
-                try {
-                    fos.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            if (oos != null) {
-                try {
-                    oos.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        //
     }
 
     @Override
@@ -332,50 +290,9 @@ public class CacheBusiness implements ICacheBusiness {
         // debe estar en lock pq se elimina la data del usuario del mapa de usuarios
 
         var file = new File("./data/file");
-
-        FileInputStream fis = null;
-        ObjectInputStream ois = null;
-        try {
-
-            if (file.exists()) {
-                file.createNewFile();
-            }
-
-            fis = new FileInputStream(file);
-            ois = new ObjectInputStream(fis);
+        this.restoreFromFile(file.getAbsolutePath(),ec);
 
 
-            UserCache userCache = new UserCache();
-            userCache.init((UserCacheStore) ois.readObject());
-            userCache.processThreads();
-            this.cache.put(ec.getUserGuid(), userCache);
-
-            ois.close();
-            fis.close();
-
-            ois = null;
-            fis = null;
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            if (fis != null) {
-                try {
-                    fis.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-
-            if (ois != null) {
-                try {
-                    ois.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }
-        //
     }
 
     @Override
@@ -434,6 +351,106 @@ public class CacheBusiness implements ICacheBusiness {
     public ThreadMessageCache<UUID> fetchThreadByMessageGid(UUID gid, RequestCommand rc) throws BusinessException {
         var userCache = this.getUserCache(true, false, rc);
         return userCache.fetchThreadByMessageGid(gid);
+    }
+
+    @Override
+    public void restoreFromFile(String path, RequestCommand rc) throws BusinessException {
+
+        File file = new File(path);
+
+        FileInputStream fis = null;
+
+        ObjectInputStream ois = null;
+        try {
+
+            if (!file.exists()) {
+                return;
+            }
+
+            fis = new FileInputStream(file);
+            ois = new ObjectInputStream(fis);
+
+
+            UserCache userCache = new UserCache();
+            userCache.init((UserCacheStore) ois.readObject());
+            userCache.processThreads();
+            this.cache.put(rc.getUserGuid(), userCache);
+
+            ois.close();
+            fis.close();
+
+            ois = null;
+            fis = null;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (fis != null) {
+                try {
+                    fis.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            if (ois != null) {
+                try {
+                    ois.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        //
+    }
+
+
+
+    @Override
+    public void saveToFile(String path, RequestCommand rc) throws BusinessException {
+        // debe estar en lock pq se elimina la data del usuario del mapa de usuarios
+
+        var file = new File(path);
+
+        FileOutputStream fos = null;
+        ObjectOutputStream oos = null;
+        try {
+
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+
+            fos = new FileOutputStream(file, false);
+            oos = new ObjectOutputStream(fos);
+
+            oos.writeObject(this.getUserCache(true, false, rc).toStore());
+
+            oos.close();
+            fos.close();
+
+            oos = null;
+            fos = null;
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (fos != null) {
+                try {
+                    fos.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+            if (oos != null) {
+                try {
+                    oos.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+        //
     }
 }
 

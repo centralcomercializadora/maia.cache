@@ -8,8 +8,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class SelectedMailboxCache<T> {
     private MailboxCache<T> mailbox;
-    OrderedThreadCache<UUID> first = null;
-    Map<UUID, OrderedThreadCache<UUID>> threadsByGid;
+    private OrderedThreadCache<UUID> first = null;
+    private Map<UUID, OrderedThreadCache<UUID>> threadsByGid;
     private AtomicLong total = new AtomicLong();
     private AtomicLong unseen = new AtomicLong();
     private FilterType filterType;
