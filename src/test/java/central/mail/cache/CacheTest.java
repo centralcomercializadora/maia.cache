@@ -1381,7 +1381,123 @@ public class CacheTest {
 
         var thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
         assert (thread != null);
-        assert (thread.getMessages().size() == 2);
+        assert (thread.getMessages().size() == 1);
+
+    }
+
+    /**
+     * un mensaje, simular move
+     */
+
+
+    @Test
+    public void threadsTestCase21_a_Online() throws Exception {
+        threadsTestCase21_a_(true);
+    }
+
+    @Test
+    public void threadsTestCase21_a_Offline() throws Exception {
+        threadsTestCase21_a_(false);
+    }
+
+
+    public void threadsTestCase21_a_(boolean online) throws Exception {
+        var mailbox1 = this.makeMailbox("inbox");
+        facade.addMailbox(mailbox1, rc);
+
+        var mailbox2 = this.makeMailbox("archive");
+        facade.addMailbox(mailbox2, rc);
+
+
+        var m1 = buildMessage(mailbox1.getId(), "m1");
+        m1.setMessageDate(System.currentTimeMillis());
+        m1.setExpunged(false);
+
+
+        if (online) {
+            facade.addMessage(m1, rc);
+        } else {
+            facade.addMessageNoSync(m1, rc);
+            facade.processThreads(rc);
+        }
+
+
+        var threads = facade.selectMailbox(SelectType.THREADS, "inbox", rc);
+        var selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 1);
+
+
+        var thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
+        assert (thread != null);
+        assert (thread.getMessages().size() == 1);
+
+        //expunge el mensaje 1 y agreo el mensaje 2
+        facade.expungeMessage(m1.getGid(), rc);
+        facade.processThreads(rc);
+        //en inbox debe estar vacio
+        threads = facade.selectMailbox(SelectType.THREADS, "inbox", rc);
+        selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 0);
+
+        var m2 = this.buildMessage(mailbox2.getId(),"m1");
+
+        if (online) {
+            facade.addMessage(m2, rc);
+        } else {
+            facade.addMessageNoSync(m2, rc);
+            facade.processThreads(rc);
+        }
+
+
+        //en inbox debe estar vacio
+        threads = facade.selectMailbox(SelectType.THREADS, "inbox", rc);
+        selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 0);
+
+
+        threads = facade.selectMailbox(SelectType.THREADS, "archive", rc);
+        selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 1);
+
+        thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
+        assert (thread != null);
+        assert (thread.getMessages().size() == 1);
+
+
+        var m3 = this.buildMessage(mailbox1.getId(),"m1");
+
+        if (online) {
+            facade.addMessage(m3, rc);
+        } else {
+            facade.addMessageNoSync(m3, rc);
+            facade.processThreads(rc);
+        }
+
+        facade.expungeMessage(m2.getGid(), rc);
+        facade.processThreads(rc);
+
+
+        //en inbox debe estar vacio
+        threads = facade.selectMailbox(SelectType.THREADS, "inbox", rc);
+        selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 1);
+
+        thread = (ThreadMessageCache<UUID>) facade.fetchThreadMessageByGid(selected1.getFirst().getThreadGid(), rc).ok();
+        assert (thread != null);
+        assert (thread.getMessages().size() == 1);
+
+        threads = facade.selectMailbox(SelectType.THREADS, "archive", rc);
+        selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
+        assert (selected1.getThreadsByGid().size() == 0);
+
+
+
+
+
+
+
+
+
 
     }
 

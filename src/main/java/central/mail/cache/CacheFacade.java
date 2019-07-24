@@ -11,6 +11,7 @@ import cognitivesolutions.session.RequestCommand;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
 public class CacheFacade implements ICacheFacade {
@@ -176,6 +177,30 @@ public class CacheFacade implements ICacheFacade {
     public void saveToFile(String path, RequestCommand rc) throws BusinessException {
         var business = Registry.getInstance(ICacheBusiness.class);
         business.saveToFile(path, rc);
+    }
+
+    @Override
+    public ReentrantReadWriteLock.ReadLock lockForRead(RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.lockForRead(rc);
+    }
+
+    @Override
+    public void releaseReadLock(ReentrantReadWriteLock.ReadLock lock, RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.releaseReadLock(lock, rc);
+    }
+
+    @Override
+    public ReentrantReadWriteLock.WriteLock lockForWrite(RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.lockForWrite(rc);
+    }
+
+    @Override
+    public void releaseWriteLock(ReentrantReadWriteLock.WriteLock lock,RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.releaseWriteLock(lock,rc);
     }
 
 }

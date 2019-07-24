@@ -11,7 +11,6 @@ import cognitivesolutions.result.Result;
 import cognitivesolutions.session.RequestCommand;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import graphql.execution.ExecutionContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,9 +21,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 
-import static central.mail.cache.model.SortType.ASC;
 import static central.mail.cache.model.SortType.DESC;
 import static cognitivesolutions.result.Result.error;
 import static cognitivesolutions.result.Result.ok;
@@ -454,6 +453,31 @@ public class CacheBusiness implements ICacheBusiness {
             }
         }
         //
+    }
+
+
+    @Override
+    public ReentrantReadWriteLock.ReadLock lockForRead(RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(true, false, rc);
+        return userCache.lockForRead();
+    }
+
+    @Override
+    public void releaseReadLock(ReentrantReadWriteLock.ReadLock lock, RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(true, false, rc);
+        userCache.releaseReadLock  (lock);
+    }
+
+    @Override
+    public ReentrantReadWriteLock.WriteLock lockForWrite(RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(true, false, rc);
+        return userCache.lockForWrite();
+    }
+
+    @Override
+    public void releaseWriteLock(ReentrantReadWriteLock.WriteLock lock, RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(true, false, rc);
+        userCache.releaseWriteLock  (lock);
     }
 }
 

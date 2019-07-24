@@ -18,11 +18,12 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
 
+import static central.mail.cache.model.MessageCache.DELETED;
 import static cognitivesolutions.result.Result.error;
 import static cognitivesolutions.result.Result.ok;
 import static com.googlecode.cqengine.query.QueryFactory.and;
@@ -102,6 +103,7 @@ public class UserCache {
         }
     };
 
+    private ReentrantReadWriteLock generalLock = new ReentrantReadWriteLock();
 
     public Object sync = new Object();
 
@@ -118,6 +120,8 @@ public class UserCache {
 
     private Long lastRefresh = null;
     private UUID mailboxGuidSelected;
+    private ReentrantReadWriteLock.ReadLock readLock;
+    private ReentrantReadWriteLock.WriteLock writeLock;
 
 
     public UserCache() {
@@ -159,6 +163,8 @@ public class UserCache {
                 message.setMessageId(UUID.randomUUID() + "-auto");
             }
 
+            System.out.println("agregando mensaje:" + message.getMessageId() + ":" + message.getGid() + ":" + message.getUid());
+
             var currentMessage = this.getMessageById(message.getGid());
             if (currentMessage == null) {
                 this.messages.add(message);
@@ -186,9 +192,10 @@ public class UserCache {
         for (var thread : this.threads) {
             for (var messageGid : thread.getMessages()) {
                 var message = this.getMessageById(messageGid);
-                if (message == null) {
+                if (message == null || message.isExpunged() || ((message.getFlags() & DELETED)> 0l)) {
                     continue;
                 }
+
                 this.addMailboxThread(thread, message);
             }
         }
@@ -231,6 +238,7 @@ public class UserCache {
             //sync all flags
             for (var thread : this.threads) {
                 syncThreadFlags(thread);
+                this.syncThreadMessages(thread);
             }
 
 
@@ -333,6 +341,7 @@ public class UserCache {
         if (syncMailboxThreads) {
             this.selectedMailboxesByMailboxGid.remove(message.getMailboxGid().toString());
             this.addMailboxThread(thread, message);
+            this.syncThreadMessages(thread);
         }
     }
 
@@ -360,9 +369,11 @@ public class UserCache {
         for (var messageGidInThread : thread.getMessages()) {
             var messageInThread = this.getMessageById(messageGidInThread);
             if (messageInThread != null) {
-                if (!messageInThread.isExpunged()) {
-                    messages.add(messageGidInThread);
+                if (messageInThread.isExpunged()||((messageInThread.getFlags() & DELETED)> 0l)) {
+                    continue;
                 }
+                    messages.add(messageGidInThread);
+
             }
         }
         thread.setMessages(messages);
@@ -373,7 +384,17 @@ public class UserCache {
         long start = System.currentTimeMillis();
         UserCacheStore store = new UserCacheStore();
         store.setMailboxes(this.mailboxes.toArray(new MailboxCache[]{}));
-        store.setMessages(this.messages.toArray(new MessageCache[]{}));
+
+
+        var messagesToSave = new ArrayList<MessageCache<UUID,UUID>>();
+        for (var message: this.messages){
+            if (!message.isExpunged()){
+                messagesToSave.add(message);
+            }
+        }
+
+
+        store.setMessages(messagesToSave.toArray(new MessageCache[]{}));
         store.setLastRefresh(this.lastRefresh);
         return store;
     }
@@ -783,6 +804,9 @@ public class UserCache {
         if (message == null) {
             return;
         }
+
+        System.out.println("expunge message:" + message.getMessageId() + ":" + message.getGid() + ":" + message.getUid());
+
         // actualizo los flags del mensaje,
         message.setExpunged(true);
         // obtengo el thread donde esta el mensaje
@@ -809,7 +833,9 @@ public class UserCache {
         if (threadsInMailboxRs != null) {
             var it = threadsInMailboxRs.iterator();
             while (it.hasNext()) {
-                this.selectedMailboxesByMailboxGid.remove(it.next().getMailboxGid().toString());
+                String id = it.next().getMailboxGid().toString();
+                System.out.println("Removed selected mailbox" + id);
+                this.selectedMailboxesByMailboxGid.remove(id);
             }
         }
     }
@@ -964,4 +990,30 @@ public class UserCache {
             }
         }
     }
+
+
+
+    public ReentrantReadWriteLock.ReadLock lockForRead(){
+        var lock = generalLock.readLock();
+        lock.lock();
+        return lock;
+    }
+
+    public void releaseReadLock(ReentrantReadWriteLock.ReadLock readLock){
+            readLock.unlock();
+    }
+
+    public ReentrantReadWriteLock.WriteLock lockForWrite(){
+        var lock = generalLock.writeLock();
+        lock.lock();
+        return lock;
+    }
+
+    public void releaseWriteLock(ReentrantReadWriteLock.WriteLock writeLock){
+
+            writeLock.unlock();
+
+    }
+
+
 }

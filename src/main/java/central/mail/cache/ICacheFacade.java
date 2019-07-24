@@ -8,6 +8,7 @@ import cognitivesolutions.session.RequestCommand;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public interface ICacheFacade {
     Result<List<MailboxCache<UUID>>> fetchMailboxes(RequestCommand ec) throws BusinessException;
@@ -63,4 +64,12 @@ public interface ICacheFacade {
     void restoreFromFile(String file, RequestCommand rc) throws BusinessException;
 
     void saveToFile(String path, RequestCommand rc) throws BusinessException;
+
+    ReentrantReadWriteLock.ReadLock lockForRead(RequestCommand rc) throws BusinessException;
+
+    void releaseReadLock(ReentrantReadWriteLock.ReadLock lock,RequestCommand rc) throws BusinessException;
+
+    ReentrantReadWriteLock.WriteLock lockForWrite(RequestCommand rc) throws BusinessException;
+
+    void releaseWriteLock(ReentrantReadWriteLock.WriteLock lock,RequestCommand rc) throws BusinessException;
 }
