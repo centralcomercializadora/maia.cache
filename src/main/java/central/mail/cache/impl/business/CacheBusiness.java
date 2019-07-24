@@ -384,6 +384,9 @@ public class CacheBusiness implements ICacheBusiness {
 
         } catch (Exception e) {
             e.printStackTrace();
+            if (file.exists()){
+                file.delete();
+            }
         } finally {
             if (fis != null) {
                 try {

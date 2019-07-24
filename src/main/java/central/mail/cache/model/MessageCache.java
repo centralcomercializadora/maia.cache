@@ -3,6 +3,7 @@ package central.mail.cache.model;
 import javax.mail.Flags;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class MessageCache<K, T> implements Serializable {
@@ -197,5 +198,28 @@ public class MessageCache<K, T> implements Serializable {
 
     public void setExpunged(boolean expunged) {
         this.expunged = expunged;
+    }
+
+    @Override
+    public String toString() {
+        return "MessageCache{" +
+                "gid=" + gid +
+                ", mailboxGid=" + mailboxGid +
+                ", mailboxUidValidity=" + mailboxUidValidity +
+                ", uid=" + uid +
+                ", flags=" + flags +
+                ", userFlags=" + Arrays.toString(userFlags) +
+                ", internalDate=" + internalDate +
+                ", messageId='" + messageId + '\'' +
+                ", inReplyTo='" + inReplyTo + '\'' +
+                ", references='" + references + '\'' +
+                ", messageDate=" + messageDate +
+                ", from='" + from + '\'' +
+                ", subject='" + subject + '\'' +
+                ", to='" + to + '\'' +
+                ", cc='" + cc + '\'' +
+                ", bcc='" + bcc + '\'' +
+                ", expunged=" + expunged +
+                '}';
     }
 }

@@ -355,6 +355,19 @@ public class UserCache {
         }
     }
 
+    private void syncThreadMessages(ThreadMessageCache<UUID> thread) {
+        Set<UUID> messages = new HashSet<>();
+        for (var messageGidInThread : thread.getMessages()) {
+            var messageInThread = this.getMessageById(messageGidInThread);
+            if (messageInThread != null) {
+                if (!messageInThread.isExpunged()) {
+                    messages.add(messageGidInThread);
+                }
+            }
+        }
+        thread.setMessages(messages);
+    }
+
     public UserCacheStore toStore() throws IOException, ClassNotFoundException {
         System.out.println("escribiendo al cache");
         long start = System.currentTimeMillis();
@@ -786,6 +799,10 @@ public class UserCache {
         }
 
         syncThreadFlags(threadResponse);
+
+        //sincronizo el contenido del thread
+        syncThreadMessages(threadResponse);
+
 
         // remuevo los selected de los mailboxes donde esta el thread
         var threadsInMailboxRs = this.mailboxThreads.retrieve(equal(MAILBOXTHREAD_GID, threadResponse.getGid()));
