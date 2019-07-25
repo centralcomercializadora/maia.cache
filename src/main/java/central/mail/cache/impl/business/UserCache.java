@@ -156,6 +156,41 @@ public class UserCache {
         try {
             this.lock.lock();
 
+            //verifico que no haya un mensaje con mismo uid,mailbox registrado y q no este expunged
+
+            ResultSet<MessageCache<UUID,UUID>> rs = null;
+
+            try {
+                rs = this.messages.retrieve(and(equal(MESSAGE_MAILBOXGID, message.getMailboxGid()), equal(MESSAGE_UID, message.getUid())));
+                if (rs!=null){
+
+                    if (!rs.isEmpty()){
+                        var it = rs.iterator();
+                        while(it.hasNext()){
+                            if (!it.next().isExpunged()){
+                                var sts =Thread.currentThread().getStackTrace();
+                                for (var st:sts){
+                                    System.err.println(st.toString());
+                                }
+                                throw new BusinessException("agregando un mensaje misma carpeta mismo uid:" + message);
+                            }
+                        }
+                    }
+                    rs.close();
+                }
+            }finally {
+
+                if (rs!=null){
+                    ((ResultSet) rs).close();
+
+                }
+            }
+
+
+
+
+
+
             UUID mailboxId = message.getMailboxGid();
 
             // todos los mensajes deben tener messageid
