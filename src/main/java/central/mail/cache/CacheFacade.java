@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static cognitivesolutions.result.Result.ok;
+
 
 public class CacheFacade implements ICacheFacade {
     @Override
@@ -152,6 +154,31 @@ public class CacheFacade implements ICacheFacade {
     public void setLastRefreshCache(Long time, RequestCommand rc) throws BusinessException {
         var business = Registry.getInstance(ICacheBusiness.class);
         business.setLastRefreshCache(time, rc);
+    }
+
+    @Override
+    public Result<Long> getLastSyncCache(RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.getLastSyncCache(rc);
+
+    }
+
+    @Override
+    public void setLastSyncCache(Long time, RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.setLastSyncCache(time, rc);
+    }
+
+    @Override
+    public Result<Boolean> isCacheLoaded(RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.isCacheLoaded(rc);
+    }
+
+    @Override
+    public void setCacheLoaded(boolean loaded, RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.setCacheLoaded(loaded, rc);
     }
 
     @Override

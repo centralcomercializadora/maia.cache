@@ -7,6 +7,7 @@ import java.io.Serializable;
 
 public class UserCacheStore implements Serializable {
     private Long lastRefresh = null;
+    private Long lastSync = null;
     private MailboxCache[] mailboxes;
     private MessageCache[] messages;
 
@@ -32,5 +33,13 @@ public class UserCacheStore implements Serializable {
 
     public void setMessages(MessageCache[] messages) {
         this.messages = messages;
+    }
+
+    public Long getLastSync() {
+        return lastSync;
+    }
+
+    public void setLastSync(Long lastSync) {
+        this.lastSync = lastSync;
     }
 }

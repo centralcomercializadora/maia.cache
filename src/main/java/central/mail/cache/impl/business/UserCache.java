@@ -119,9 +119,9 @@ public class UserCache {
     private ReentrantLock lock = new ReentrantLock();
 
     private Long lastRefresh = null;
-    private UUID mailboxGuidSelected;
-    private ReentrantReadWriteLock.ReadLock readLock;
-    private ReentrantReadWriteLock.WriteLock writeLock;
+    private Long lastSync = null;
+    private Boolean cacheLoaded=false;
+
 
 
     public UserCache() {
@@ -163,7 +163,7 @@ public class UserCache {
                 message.setMessageId(UUID.randomUUID() + "-auto");
             }
 
-            System.out.println("agregando mensaje:" + message.getMessageId() + ":" + message.getGid() + ":" + message.getUid());
+            //System.out.println("agregando mensaje:" + message.getMessageId() + ":" + message.getGid() + ":" + message.getUid());
 
             var currentMessage = this.getMessageById(message.getGid());
             if (currentMessage == null) {
@@ -380,7 +380,7 @@ public class UserCache {
     }
 
     public UserCacheStore toStore() throws IOException, ClassNotFoundException {
-        System.out.println("escribiendo al cache");
+        //System.out.println("escribiendo al cache");
         long start = System.currentTimeMillis();
         UserCacheStore store = new UserCacheStore();
         store.setMailboxes(this.mailboxes.toArray(new MailboxCache[]{}));
@@ -396,6 +396,7 @@ public class UserCache {
 
         store.setMessages(messagesToSave.toArray(new MessageCache[]{}));
         store.setLastRefresh(this.lastRefresh);
+        store.setLastSync(this.lastSync);
         return store;
     }
 
@@ -410,6 +411,7 @@ public class UserCache {
                 this.addNoSync(message);
             }
             this.lastRefresh = store.getLastRefresh();
+            this.lastSync = store.getLastSync();
 
         } catch (BusinessException e) {
             e.printStackTrace();
@@ -426,6 +428,14 @@ public class UserCache {
 
     public void setLastRefresh(Long lastRefresh) {
         this.lastRefresh = lastRefresh;
+    }
+
+    public Long getLastSync() {
+        return lastSync;
+    }
+
+    public void setLastSync(Long lastSync) {
+        this.lastSync = lastSync;
     }
 
     public List<MailboxCache<UUID>> getMailboxes() {
@@ -733,9 +743,9 @@ public class UserCache {
                 }
             }
 
-            System.out.println("threads all: " + this.threads.size());
-            System.out.println("threads: " + this.mailboxThreads.size());
-            System.out.println("mailbox threads: " + threads.size());
+            //System.out.println("threads all: " + this.threads.size());
+            //System.out.println("threads: " + this.mailboxThreads.size());
+            //System.out.println("mailbox threads: " + threads.size());
 
             selectedMailbox = new SelectedMailboxCache<>(mailbox, first, threadsByGid);
             selectedMailbox.setFilterType(filterType);
@@ -805,7 +815,7 @@ public class UserCache {
             return;
         }
 
-        System.out.println("expunge message:" + message.getMessageId() + ":" + message.getGid() + ":" + message.getUid());
+        //System.out.println("expunge message:" + message.getMessageId() + ":" + message.getGid() + ":" + message.getUid());
 
         // actualizo los flags del mensaje,
         message.setExpunged(true);
@@ -834,7 +844,7 @@ public class UserCache {
             var it = threadsInMailboxRs.iterator();
             while (it.hasNext()) {
                 String id = it.next().getMailboxGid().toString();
-                System.out.println("Removed selected mailbox" + id);
+                //System.out.println("Removed selected mailbox" + id);
                 this.selectedMailboxesByMailboxGid.remove(id);
             }
         }
@@ -974,9 +984,9 @@ public class UserCache {
                 }
             }
 
-            System.out.println("threads all: " + this.threads.size());
-            System.out.println("threads: " + this.mailboxThreads.size());
-            System.out.println("mailbox threads: " + threads.size());
+            //System.out.println("threads all: " + this.threads.size());
+            //System.out.println("threads: " + this.mailboxThreads.size());
+            //System.out.println("mailbox threads: " + threads.size());
 
             selectedMailbox = new SelectedMailboxCache<>(mailbox, first, threadsByGid);
             selectedMailbox.setFilterType(filterType);
@@ -1015,5 +1025,11 @@ public class UserCache {
 
     }
 
+    public Boolean getCacheLoaded() {
+        return cacheLoaded;
+    }
 
+    public void setCacheLoaded(Boolean cacheLoaded) {
+        this.cacheLoaded = cacheLoaded;
+    }
 }

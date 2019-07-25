@@ -62,6 +62,14 @@ public interface ICacheBusiness {
 
     void setLastRefreshCache(Long time, RequestCommand rc) throws BusinessException;
 
+    Result<Boolean> isCacheLoaded(RequestCommand rc) throws BusinessException;
+
+    void setCacheLoaded(boolean loaded, RequestCommand rc) throws BusinessException;
+
+    Result<Long> getLastSyncCache(RequestCommand rc) throws BusinessException;
+
+    void setLastSyncCache(Long time, RequestCommand rc) throws BusinessException;
+
     Result<MailboxCache<UUID>> fetchMailboxById(UUID mailboxId, RequestCommand rc) throws BusinessException;
 
     ThreadMessageCache<UUID> fetchThreadByMessageGid(UUID gid, RequestCommand rc) throws BusinessException;

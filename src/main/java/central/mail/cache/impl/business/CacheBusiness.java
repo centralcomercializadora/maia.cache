@@ -337,6 +337,43 @@ public class CacheBusiness implements ICacheBusiness {
     }
 
     @Override
+    public Result<Boolean> isCacheLoaded(RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(false, false, rc);
+        if (userCache == null) {
+            return ok(false);
+        }
+
+        return ok(userCache.getCacheLoaded());
+    }
+
+    @Override
+    public void setCacheLoaded(boolean loaded, RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(true, false, rc);
+        if (userCache != null) {
+            userCache.setCacheLoaded(loaded);
+        }
+    }
+
+
+    @Override
+    public Result<Long> getLastSyncCache(RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(false, false, rc);
+        if (userCache == null) {
+            return ok(null);
+        }
+
+        return ok(userCache.getLastSync());
+    }
+
+    @Override
+    public void setLastSyncCache(Long time, RequestCommand rc) throws BusinessException {
+        var userCache = this.getUserCache(true, false, rc);
+        if (userCache != null) {
+            userCache.setLastSync(time);
+        }
+    }
+
+    @Override
     public Result<MailboxCache<UUID>> fetchMailboxById(UUID mailboxId, RequestCommand rc) throws BusinessException {
         var userCache = this.getUserCache(true, false, rc);
         if (userCache != null) {
