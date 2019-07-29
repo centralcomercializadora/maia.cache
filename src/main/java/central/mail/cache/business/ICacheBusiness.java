@@ -14,6 +14,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 public interface ICacheBusiness {
     void init() throws BusinessException;
 
+    List<UUID> getCacheIds();
+
+    void removeCache(RequestCommand rc) throws BusinessException;
+
     Result<List<MailboxCache<UUID>>> fetchMailboxes(RequestCommand ec) throws BusinessException;
 
     Result<MailboxCache<UUID>> fetchMailboxByName(String name, RequestCommand ec) throws BusinessException;

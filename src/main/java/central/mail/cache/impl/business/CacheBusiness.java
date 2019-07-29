@@ -15,10 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.*;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -36,10 +33,11 @@ public class CacheBusiness implements ICacheBusiness {
     private final IExceptionHandler exceptionHandler;
     private final IConfiguration configuration;
 
-    private Map<UUID, UserCache> cache;
+    private final Map<UUID, UserCache> cache = new ConcurrentHashMap<>();
 
     private static final ReentrantLock generalLock = new ReentrantLock();
     private static final Map<UUID, ReentrantLock> cacheLocks = new ConcurrentHashMap<>();
+    private static final Map<UUID, ReentrantReadWriteLock> locks = new ConcurrentHashMap<>();
 
     @Inject
     public CacheBusiness(IExceptionHandler exceptionHandler, IConfiguration configuration) {
@@ -51,13 +49,32 @@ public class CacheBusiness implements ICacheBusiness {
     @Override
     public void init() throws BusinessException {
 
-        try {
-            if (cache == null) {
-                cache = new ConcurrentHashMap<>();
-            }
 
-        } catch (Exception e) {
-            e.printStackTrace();
+    }
+
+
+    @Override
+    public List<UUID> getCacheIds(){
+        return new ArrayList(this.cache.keySet());
+    }
+
+    @Override
+    public void removeCache(RequestCommand rc) throws BusinessException {
+        var lock = getUserLock(rc);
+        if (lock!=null){
+            var write = lock.writeLock();
+            try{
+                write.lock();
+                var cache = this.cache.get(rc.getUserGuid());
+                if (cache!=null){
+                    cache.clean();
+                }
+
+            }finally {
+                if (write!=null){
+                    write.unlock();
+                }
+            }
         }
     }
 
@@ -70,6 +87,28 @@ public class CacheBusiness implements ICacheBusiness {
                 if (res == null) {
                     res = new ReentrantLock();
                     this.cacheLocks.put((UUID) rc.getUserGuid(), res);
+                }
+            } catch (InterruptedException e) {
+                this.exceptionHandler.handleErrorAsBusinessException(CacheBusiness.class, e, rc);
+            } finally {
+                if (this.generalLock.isLocked()) {
+                    this.generalLock.unlock();
+                }
+            }
+        }
+
+        return res;
+    }
+
+    private ReentrantReadWriteLock getUserLock(RequestCommand rc) throws BusinessException {
+        ReentrantReadWriteLock res = this.locks.get(rc.getUserGuid());
+        if (res == null) {
+            try {
+                this.generalLock.lockInterruptibly();
+                res = this.locks.get(rc.getUserGuid());
+                if (res == null) {
+                    res = new ReentrantReadWriteLock();
+                    this.locks.put((UUID) rc.getUserGuid(), res);
                 }
             } catch (InterruptedException e) {
                 this.exceptionHandler.handleErrorAsBusinessException(CacheBusiness.class, e, rc);
@@ -127,7 +166,7 @@ public class CacheBusiness implements ICacheBusiness {
                 }
 
                 if (res == null) {
-                    res = new UserCache();
+                    res = new UserCache(requestCommand.getUserGuid());
                     this.cache.put(requestCommand.getUserGuid(), res);
                 }
 
@@ -392,6 +431,14 @@ public class CacheBusiness implements ICacheBusiness {
     @Override
     public void restoreFromFile(String path, RequestCommand rc) throws BusinessException {
 
+        ReentrantLock opLock = null;
+
+        try{
+            opLock = this.getLock(rc);
+
+
+
+
         File file = new File(path);
 
         FileInputStream fis = null;
@@ -407,9 +454,10 @@ public class CacheBusiness implements ICacheBusiness {
             ois = new ObjectInputStream(fis);
 
 
-            UserCache userCache = new UserCache();
+            UserCache userCache = new UserCache(rc.getUserGuid());
             userCache.init((UserCacheStore) ois.readObject());
             userCache.processThreads();
+            userCache.setCacheLoaded(true);
             this.cache.put(rc.getUserGuid(), userCache);
 
             ois.close();
@@ -439,6 +487,12 @@ public class CacheBusiness implements ICacheBusiness {
                     e.printStackTrace();
                 }
             }
+        }
+        }finally {
+            if(opLock!=null && opLock.isLocked()){
+                opLock.unlock();
+            }
+
         }
         //
     }
@@ -495,26 +549,30 @@ public class CacheBusiness implements ICacheBusiness {
 
     @Override
     public ReentrantReadWriteLock.ReadLock lockForRead(RequestCommand rc) throws BusinessException {
-        var userCache = this.getUserCache(true, false, rc);
-        return userCache.lockForRead();
+        var lock =  this.getUserLock(rc);
+                var readLock = lock.readLock();
+                readLock.lock();
+        return readLock;
     }
+
+
 
     @Override
     public void releaseReadLock(ReentrantReadWriteLock.ReadLock lock, RequestCommand rc) throws BusinessException {
-        var userCache = this.getUserCache(true, false, rc);
-        userCache.releaseReadLock  (lock);
+        lock.unlock();
     }
 
     @Override
     public ReentrantReadWriteLock.WriteLock lockForWrite(RequestCommand rc) throws BusinessException {
-        var userCache = this.getUserCache(true, false, rc);
-        return userCache.lockForWrite();
+        var lock =  this.getUserLock(rc);
+        var writeLock = lock.writeLock();
+        writeLock.lock();
+        return writeLock;
     }
 
     @Override
     public void releaseWriteLock(ReentrantReadWriteLock.WriteLock lock, RequestCommand rc) throws BusinessException {
-        var userCache = this.getUserCache(true, false, rc);
-        userCache.releaseWriteLock  (lock);
+       lock.unlock();
     }
 }
 

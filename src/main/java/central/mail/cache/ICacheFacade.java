@@ -80,4 +80,8 @@ public interface ICacheFacade {
     ReentrantReadWriteLock.WriteLock lockForWrite(RequestCommand rc) throws BusinessException;
 
     void releaseWriteLock(ReentrantReadWriteLock.WriteLock lock,RequestCommand rc) throws BusinessException;
+
+    List<UUID> getCacheIds();
+
+    void removeCache(RequestCommand rc) throws BusinessException;
 }

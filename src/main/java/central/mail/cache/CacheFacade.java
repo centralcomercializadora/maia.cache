@@ -8,6 +8,7 @@ import cognitivesolutions.result.Result;
 import cognitivesolutions.session.RequestCommand;
 
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
@@ -228,6 +229,18 @@ public class CacheFacade implements ICacheFacade {
     public void releaseWriteLock(ReentrantReadWriteLock.WriteLock lock,RequestCommand rc) throws BusinessException {
         var business = Registry.getInstance(ICacheBusiness.class);
         business.releaseWriteLock(lock,rc);
+    }
+
+    @Override
+    public List<UUID> getCacheIds(){
+        var business = Registry.getInstance(ICacheBusiness.class);
+        return business.getCacheIds();
+    }
+
+    @Override
+    public void removeCache(RequestCommand rc) throws BusinessException {
+        var business = Registry.getInstance(ICacheBusiness.class);
+        business.removeCache(rc);
     }
 
 }

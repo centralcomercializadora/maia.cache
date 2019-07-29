@@ -103,8 +103,6 @@ public class UserCache {
         }
     };
 
-    private ReentrantReadWriteLock generalLock = new ReentrantReadWriteLock();
-
     public Object sync = new Object();
 
     private String[] comparables = new String[]{"FROM", "SUBJECT", "DATE", "TO"};
@@ -121,11 +119,13 @@ public class UserCache {
     private Long lastRefresh = null;
     private Long lastSync = null;
     private Boolean cacheLoaded=false;
+    private final UUID id;
 
 
 
-    public UserCache() {
+    public UserCache(UUID id) {
 
+        this.id = id;
 
         this.mailboxes.addIndex(HashIndex.onAttribute(MAILBOX_NAME));
         this.mailboxes.addIndex(HashIndex.onAttribute(MAILBOX_ID));
@@ -1036,35 +1036,32 @@ public class UserCache {
         }
     }
 
-
-
-    public ReentrantReadWriteLock.ReadLock lockForRead(){
-        var lock = generalLock.readLock();
-        lock.lock();
-        return lock;
-    }
-
-    public void releaseReadLock(ReentrantReadWriteLock.ReadLock readLock){
-            readLock.unlock();
-    }
-
-    public ReentrantReadWriteLock.WriteLock lockForWrite(){
-        var lock = generalLock.writeLock();
-        lock.lock();
-        return lock;
-    }
-
-    public void releaseWriteLock(ReentrantReadWriteLock.WriteLock writeLock){
-
-            writeLock.unlock();
-
-    }
-
     public Boolean getCacheLoaded() {
         return cacheLoaded;
     }
 
     public void setCacheLoaded(Boolean cacheLoaded) {
         this.cacheLoaded = cacheLoaded;
+    }
+
+
+    public void clean(){
+        try{
+            this.threads.clear();
+            this.messageIdThreads.clear();
+            this.mailboxThreads.clear();
+            this.threadByMessageGid.clear();
+            this.selectedMailboxesByMailboxGid.clear();
+            this.mailboxes.clear();
+            this.messages.clear();
+            this.lastRefresh = null;
+            this.lastSync = null;
+            this.cacheLoaded=false;
+        }finally {
+        }
+    }
+
+    public UUID getId() {
+        return id;
     }
 }
