@@ -62,9 +62,11 @@ public class CacheBusiness implements ICacheBusiness {
     public void removeCache(RequestCommand rc) throws BusinessException {
         var lock = getUserLock(rc);
         if (lock!=null){
-            var write = lock.writeLock();
+            ReentrantReadWriteLock.WriteLock write = null;
             try{
+                write = lock.writeLock();;
                 write.lock();
+
                 var cache = this.cache.get(rc.getUserGuid());
                 if (cache!=null){
                     cache.clean();
