@@ -17,6 +17,8 @@ public class MailboxCache<T> implements Serializable {
     private boolean toOrderByDate = false;
     private Long uidNext;
     private boolean removed = false;
+    private boolean junk;
+    private boolean trash;
 
     public T getId() {
         return id;
@@ -121,6 +123,22 @@ public class MailboxCache<T> implements Serializable {
 
     public void setRemoved(boolean removed) {
         this.removed = removed;
+    }
+
+    public boolean isJunk() {
+        return junk;
+    }
+
+    public void setJunk(boolean junk) {
+        this.junk = junk;
+    }
+
+    public boolean isTrash() {
+        return trash;
+    }
+
+    public void setTrash(boolean trash) {
+        this.trash = trash;
     }
 
     @Override

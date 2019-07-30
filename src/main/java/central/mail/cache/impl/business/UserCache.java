@@ -374,7 +374,8 @@ public class UserCache {
         }
 
         if (syncMailboxThreads) {
-            this.selectedMailboxesByMailboxGid.remove(message.getMailboxGid().toString());
+            this.selectedMailboxesByMailboxGid.remove("t_"+message.getMailboxGid().toString());
+            this.selectedMailboxesByMailboxGid.remove("m_"+message.getMailboxGid().toString());
             this.addMailboxThread(thread, message);
             this.syncThreadMessages(thread);
         }
@@ -650,7 +651,7 @@ public class UserCache {
 
     public Result<SelectedMailboxCache<UUID>> selectMailbox(MailboxCache<UUID> mailbox, Sort sort, SortType sortType, FilterType filterType) {
         //saber si debo volver a procesar todo el cache
-        var selectedMailbox = this.selectedMailboxesByMailboxGid.get(mailbox.getId().toString());
+        var selectedMailbox = this.selectedMailboxesByMailboxGid.get("t_"+mailbox.getId().toString());
         if (selectedMailbox != null && selectedMailbox.getFilterType().equals(filterType)) {
             // debo refrescar el selected?
             return ok(selectedMailbox);
@@ -659,7 +660,7 @@ public class UserCache {
         try {
             this.lock.lock();
 
-            selectedMailbox = this.selectedMailboxesByMailboxGid.get(mailbox.getId().toString());
+            selectedMailbox = this.selectedMailboxesByMailboxGid.get("t_"+mailbox.getId().toString());
 
             if (selectedMailbox != null && selectedMailbox.getFilterType().equals(filterType)) {
                 // debo refrescar el selected?
@@ -786,7 +787,7 @@ public class UserCache {
             selectedMailbox.setFilterType(filterType);
             selectedMailbox.setTotal(new AtomicLong(totalThreads));
             selectedMailbox.setUnseen(new AtomicLong(threadsUnSeen));
-            this.selectedMailboxesByMailboxGid.put(mailbox.getId().toString(), selectedMailbox);
+            this.selectedMailboxesByMailboxGid.put("t_"+mailbox.getId().toString(), selectedMailbox);
             return ok(selectedMailbox);
         } finally {
             if (this.lock.isLocked()) {
@@ -823,7 +824,9 @@ public class UserCache {
         if (threadsInMailboxRs != null) {
             var it = threadsInMailboxRs.iterator();
             while (it.hasNext()) {
-                this.selectedMailboxesByMailboxGid.remove(it.next().getMailboxGid().toString());
+                var ob = it.next().getMailboxGid().toString();
+                this.selectedMailboxesByMailboxGid.remove("t_"+ob);
+                this.selectedMailboxesByMailboxGid.remove("m_"+ob);
             }
         }
     }
@@ -880,7 +883,8 @@ public class UserCache {
             while (it.hasNext()) {
                 String id = it.next().getMailboxGid().toString();
                 //System.out.println("Removed selected mailbox" + id);
-                this.selectedMailboxesByMailboxGid.remove(id);
+                this.selectedMailboxesByMailboxGid.remove("t_"+id);
+                this.selectedMailboxesByMailboxGid.remove("m_"+id);
             }
         }
     }
@@ -893,7 +897,7 @@ public class UserCache {
 
     public Result<SelectedMailboxCache<UUID>> selectMailboxMessages(MailboxCache<UUID> mailbox, Sort sort, SortType sortType, FilterType filterType) {
         //saber si debo volver a procesar todo el cache
-        var selectedMailbox = this.selectedMailboxesByMailboxGid.get(mailbox.getId().toString());
+        var selectedMailbox = this.selectedMailboxesByMailboxGid.get("m_"+mailbox.getId().toString());
         if (selectedMailbox != null && selectedMailbox.getFilterType().equals(filterType)) {
             // debo refrescar el selected?
             return ok(selectedMailbox);
@@ -902,7 +906,7 @@ public class UserCache {
         try {
             this.lock.lock();
 
-            selectedMailbox = this.selectedMailboxesByMailboxGid.get(mailbox.getId().toString());
+            selectedMailbox = this.selectedMailboxesByMailboxGid.get("m_"+mailbox.getId().toString());
 
             if (selectedMailbox != null && selectedMailbox.getFilterType().equals(filterType)) {
                 // debo refrescar el selected?
@@ -1027,7 +1031,7 @@ public class UserCache {
             selectedMailbox.setFilterType(filterType);
             selectedMailbox.setTotal(new AtomicLong(totalThreads));
             selectedMailbox.setUnseen(new AtomicLong(threadsUnSeen));
-            this.selectedMailboxesByMailboxGid.put(mailbox.getId().toString(), selectedMailbox);
+            this.selectedMailboxesByMailboxGid.put("m_"+mailbox.getId().toString(), selectedMailbox);
             return ok(selectedMailbox);
         } finally {
             if (this.lock.isLocked()) {
@@ -1064,4 +1068,5 @@ public class UserCache {
     public UUID getId() {
         return id;
     }
+    
 }
