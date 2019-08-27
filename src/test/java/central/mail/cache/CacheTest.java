@@ -1,6 +1,7 @@
 package central.mail.cache;
 
 
+import central.mail.cache.impl.business.UserCache;
 import central.mail.cache.model.*;
 import cognitivesolutions.configuracion.Configuracion;
 import cognitivesolutions.registry.Registry;
@@ -1439,7 +1440,7 @@ public class CacheTest {
         selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
         assert (selected1.getThreadsByGid().size() == 0);
 
-        var m2 = this.buildMessage(mailbox2.getId(),"m1");
+        var m2 = this.buildMessage(mailbox2.getId(), "m1");
 
         if (online) {
             facade.addMessage(m2, rc);
@@ -1464,7 +1465,7 @@ public class CacheTest {
         assert (thread.getMessages().size() == 1);
 
 
-        var m3 = this.buildMessage(mailbox1.getId(),"m1");
+        var m3 = this.buildMessage(mailbox1.getId(), "m1");
 
         if (online) {
             facade.addMessage(m3, rc);
@@ -1489,14 +1490,6 @@ public class CacheTest {
         threads = facade.selectMailbox(SelectType.THREADS, "archive", rc);
         selected1 = ((SelectedMailboxCache<UUID>) threads.ok());
         assert (selected1.getThreadsByGid().size() == 0);
-
-
-
-
-
-
-
-
 
 
     }
@@ -2164,4 +2157,66 @@ public class CacheTest {
         assert (selected1.getUnseen().get() == 1l);
 
     }
+
+    @Test
+    public void messageIdTests1() throws Exception {
+        String test = "";
+        assert (UserCache.getMessagesIds(test).length == 0);
+    }
+
+    @Test
+    public void messageIdTests2() throws Exception {
+        String test = "aaaaaa@aaaa.com";
+        assert (UserCache.getMessagesIds(test).length == 1);
+    }
+
+    @Test
+    public void messageIdTests3() throws Exception {
+        String test = "aaaaaa,@aaaa.com";
+        assert (UserCache.getMessagesIds(test).length == 1);
+    }
+
+    @Test
+    public void messageIdTests4() throws Exception {
+        String test = "<aaaaaa,@aaaa.com>";
+        assert (UserCache.getMessagesIds(test).length == 1);
+    }
+
+    @Test
+    public void messageIdTests5() throws Exception {
+        String test = "a b";
+        assert (UserCache.getMessagesIds(test).length == 1);
+    }
+
+    @Test
+    public void messageIdTests6() throws Exception {
+        String test = "<a> <b>";
+        assert (UserCache.getMessagesIds(test).length == 2);
+    }
+
+    @Test
+    public void messageIdTests7() throws Exception {
+        String test = "<a> b";
+        assert (UserCache.getMessagesIds(test).length == 1);
+    }
+
+    @Test
+    public void messageIdTests8() throws Exception {
+        String test = "<a> b c";
+        assert (UserCache.getMessagesIds(test).length == 1);
+    }
+
+    @Test
+    public void messageIdTests9() throws Exception {
+        String test = "<a> <b> <c> <d> <e>";
+        assert (UserCache.getMessagesIds(test).length == 5);
+    }
+
+    @Test
+    public void messageIdTests10() throws Exception {
+        String test = "<1530895187,983525518@webmail.emailsrvr.com>, <cy4pr20mb192694a8db8489c03f31c276ee440@cy4pr20mb1926.namprd20.prod.outlo o k.com> <cy4pr20mb1926de68ce214a8ce10ce764ee5b0@cy4pr20mb1926.namprd20.prod.outloo k.com>,<1531266095,027116200@webmail.emailsrvr.com>, <mwhpr20mb19330d33b6643c050ad54a08ee090@mwhpr20mb1933.namprd20.prod.outlo o k.com> <bn6pr2001mb18577e88379ad4c84011825ceeeb0@bn6pr2001mb1857.namprd20.prod.ou tlook.com>,<1539207985,37318749@webmail.emailsrvr.com>, <bn6pr2001mb1857b22c75c8c91189c879ddeee10@bn6pr2001mb1857.namprd20.prod.o u tlook.com>, <bn6pr2001mb1857648e3b048e724506d766eef60@bn6pr2001mb1857.namprd20.prod.o u tlook.com> <mwhpr2001mb18724721527784a1517dc3b0eec50@mwhpr2001mb1872.namprd20.prod.ou tlook.com>,<1541774866, 384721056@webmail.emailsrvr.com> <bn6pr2001mb18578157635c3f651256432beec60@bn6pr2001mb1857.namprd20.prod.ou tlook.com>,<1541775736, 8876412@webmail.emailsrvr.com> <bn6pr2001mb18577ea1f167d12ea5497b08eeb50@bn6pr2001mb1857.namprd20.prod.ou tlook.com>,<1545859644, 955317279@webmail.emailsrvr.com> <dm5pr05mb3514942e58f23437368250adee3a0@dm5pr05mb3514.namprd05.prod.outloo k.com>,<1556840840,672830267@webmail.emailsrvr.com>, <dm5pr05mb3514a61f1ae9e26e58e89660ee350@dm5pr05mb3514.namprd05.prod.outlo o k.com> <dm5pr05mb35141d0d6db282ca373ec0baee0a0@dm5pr05mb3514.namprd05.prod.outloo k.com>,<1558642243, 478919156@webmail.emailsrvr.com> <dm5pr05mb35146c5ae000800c626d2dc1ee010@dm5pr05mb3514.namprd05.prod.outloo k.com>,<1559226729,297312017@webmail.emailsrvr.com> <dm5pr05mb351495ee964b3cc0b0b29c22ee180@dm5pr05mb3514.namprd05.prod.outlook.com>";
+        assert (UserCache.getMessagesIds(test).length == 23);
+    }
+
+
 }

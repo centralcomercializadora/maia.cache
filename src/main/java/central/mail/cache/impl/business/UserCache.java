@@ -118,9 +118,8 @@ public class UserCache {
 
     private Long lastRefresh = null;
     private Long lastSync = null;
-    private Boolean cacheLoaded=false;
+    private Boolean cacheLoaded = false;
     private final UUID id;
-
 
 
     public UserCache(UUID id) {
@@ -158,18 +157,18 @@ public class UserCache {
 
             //verifico que no haya un mensaje con mismo uid,mailbox registrado y q no este expunged
 
-            ResultSet<MessageCache<UUID,UUID>> rs = null;
+            ResultSet<MessageCache<UUID, UUID>> rs = null;
 
             try {
                 rs = this.messages.retrieve(and(equal(MESSAGE_MAILBOXGID, message.getMailboxGid()), equal(MESSAGE_UID, message.getUid())));
-                if (rs!=null){
+                if (rs != null) {
 
-                    if (!rs.isEmpty()){
+                    if (!rs.isEmpty()) {
                         var it = rs.iterator();
-                        while(it.hasNext()){
-                            if (!it.next().isExpunged()){
-                                var sts =Thread.currentThread().getStackTrace();
-                                for (var st:sts){
+                        while (it.hasNext()) {
+                            if (!it.next().isExpunged()) {
+                                var sts = Thread.currentThread().getStackTrace();
+                                for (var st : sts) {
                                     System.err.println(st.toString());
                                 }
                                 throw new BusinessException("agregando un mensaje misma carpeta mismo uid:" + message);
@@ -178,17 +177,13 @@ public class UserCache {
                     }
                     rs.close();
                 }
-            }finally {
+            } finally {
 
-                if (rs!=null){
+                if (rs != null) {
                     ((ResultSet) rs).close();
 
                 }
             }
-
-
-
-
 
 
             UUID mailboxId = message.getMailboxGid();
@@ -227,7 +222,7 @@ public class UserCache {
         for (var thread : this.threads) {
             for (var messageGid : thread.getMessages()) {
                 var message = this.getMessageById(messageGid);
-                if (message == null || message.isExpunged() || ((message.getFlags() & DELETED)> 0l)) {
+                if (message == null || message.isExpunged() || ((message.getFlags() & DELETED) > 0l)) {
                     continue;
                 }
 
@@ -285,6 +280,48 @@ public class UserCache {
         }
     }
 
+    public static String[] getMessagesIds(String input) {
+        var res = new ArrayList<String>();
+        byte[] content = input.getBytes();
+        boolean inMessageId = false;
+        StringBuffer part = new StringBuffer();
+        for (byte letter : content) {
+            if (letter == '<') {
+                inMessageId = true;
+            }
+
+            if (inMessageId) {
+                part.append((char) letter);
+            }
+
+            if (letter == '>') {
+                inMessageId = false;
+                String _part = part.toString().trim();
+                if (!_part.isEmpty()) {
+                    res.add(_part);
+                }
+
+                part = new StringBuffer();
+            }
+        }
+
+        if (inMessageId) {
+            String _part = part.toString().trim();
+            if (!_part.isEmpty()) {
+                res.add(_part);
+            }
+        }
+
+        if (res.size() == 0) {
+            if (!input.trim().isEmpty()) {
+                return new String[]{input.trim()};
+            }
+        }
+
+        return res.toArray(new String[]{});
+
+    }
+
     private void processThreadsMessage(MessageCache<UUID, UUID> message, boolean syncAllFlags, boolean syncMailboxThreads) {
         Set<String> references = new HashSet<>();
 
@@ -294,16 +331,17 @@ public class UserCache {
         }
 
         if (message.getReferences() != null) {
-            String[] referencesId = message.getReferences().replaceAll(",", " ").trim().split(" ");
+            String[] referencesId = getMessagesIds(message.getReferences().trim());
             if (referencesId != null && referencesId.length > 0) {
                 for (String referenceId : referencesId) {
-                    references.add(referenceId.trim());
+                    if (!referenceId.trim().isEmpty()) {
+                        references.add(referenceId.trim());
+                    }
                 }
             }
         }
 
         ThreadMessageIdCache<UUID> currentThreadMessageId = null;
-
 
         for (String reference : references) {
 
@@ -374,8 +412,8 @@ public class UserCache {
         }
 
         if (syncMailboxThreads) {
-            this.selectedMailboxesByMailboxGid.remove("t_"+message.getMailboxGid().toString());
-            this.selectedMailboxesByMailboxGid.remove("m_"+message.getMailboxGid().toString());
+            this.selectedMailboxesByMailboxGid.remove("t_" + message.getMailboxGid().toString());
+            this.selectedMailboxesByMailboxGid.remove("m_" + message.getMailboxGid().toString());
             this.addMailboxThread(thread, message);
             this.syncThreadMessages(thread);
         }
@@ -405,10 +443,10 @@ public class UserCache {
         for (var messageGidInThread : thread.getMessages()) {
             var messageInThread = this.getMessageById(messageGidInThread);
             if (messageInThread != null) {
-                if (messageInThread.isExpunged()||((messageInThread.getFlags() & DELETED)> 0l)) {
+                if (messageInThread.isExpunged() || ((messageInThread.getFlags() & DELETED) > 0l)) {
                     continue;
                 }
-                    messages.add(messageGidInThread);
+                messages.add(messageGidInThread);
 
             }
         }
@@ -422,9 +460,9 @@ public class UserCache {
         store.setMailboxes(this.mailboxes.toArray(new MailboxCache[]{}));
 
 
-        var messagesToSave = new ArrayList<MessageCache<UUID,UUID>>();
-        for (var message: this.messages){
-            if (!message.isExpunged()){
+        var messagesToSave = new ArrayList<MessageCache<UUID, UUID>>();
+        for (var message : this.messages) {
+            if (!message.isExpunged()) {
                 messagesToSave.add(message);
             }
         }
@@ -651,7 +689,7 @@ public class UserCache {
 
     public Result<SelectedMailboxCache<UUID>> selectMailbox(MailboxCache<UUID> mailbox, Sort sort, SortType sortType, FilterType filterType) {
         //saber si debo volver a procesar todo el cache
-        var selectedMailbox = this.selectedMailboxesByMailboxGid.get("t_"+mailbox.getId().toString());
+        var selectedMailbox = this.selectedMailboxesByMailboxGid.get("t_" + mailbox.getId().toString());
         if (selectedMailbox != null && selectedMailbox.getFilterType().equals(filterType)) {
             // debo refrescar el selected?
             return ok(selectedMailbox);
@@ -660,7 +698,7 @@ public class UserCache {
         try {
             this.lock.lock();
 
-            selectedMailbox = this.selectedMailboxesByMailboxGid.get("t_"+mailbox.getId().toString());
+            selectedMailbox = this.selectedMailboxesByMailboxGid.get("t_" + mailbox.getId().toString());
 
             if (selectedMailbox != null && selectedMailbox.getFilterType().equals(filterType)) {
                 // debo refrescar el selected?
@@ -787,7 +825,7 @@ public class UserCache {
             selectedMailbox.setFilterType(filterType);
             selectedMailbox.setTotal(new AtomicLong(totalThreads));
             selectedMailbox.setUnseen(new AtomicLong(threadsUnSeen));
-            this.selectedMailboxesByMailboxGid.put("t_"+mailbox.getId().toString(), selectedMailbox);
+            this.selectedMailboxesByMailboxGid.put("t_" + mailbox.getId().toString(), selectedMailbox);
             return ok(selectedMailbox);
         } finally {
             if (this.lock.isLocked()) {
@@ -825,8 +863,8 @@ public class UserCache {
             var it = threadsInMailboxRs.iterator();
             while (it.hasNext()) {
                 var ob = it.next().getMailboxGid().toString();
-                this.selectedMailboxesByMailboxGid.remove("t_"+ob);
-                this.selectedMailboxesByMailboxGid.remove("m_"+ob);
+                this.selectedMailboxesByMailboxGid.remove("t_" + ob);
+                this.selectedMailboxesByMailboxGid.remove("m_" + ob);
             }
         }
     }
@@ -883,8 +921,8 @@ public class UserCache {
             while (it.hasNext()) {
                 String id = it.next().getMailboxGid().toString();
                 //System.out.println("Removed selected mailbox" + id);
-                this.selectedMailboxesByMailboxGid.remove("t_"+id);
-                this.selectedMailboxesByMailboxGid.remove("m_"+id);
+                this.selectedMailboxesByMailboxGid.remove("t_" + id);
+                this.selectedMailboxesByMailboxGid.remove("m_" + id);
             }
         }
     }
@@ -897,7 +935,7 @@ public class UserCache {
 
     public Result<SelectedMailboxCache<UUID>> selectMailboxMessages(MailboxCache<UUID> mailbox, Sort sort, SortType sortType, FilterType filterType) {
         //saber si debo volver a procesar todo el cache
-        var selectedMailbox = this.selectedMailboxesByMailboxGid.get("m_"+mailbox.getId().toString());
+        var selectedMailbox = this.selectedMailboxesByMailboxGid.get("m_" + mailbox.getId().toString());
         if (selectedMailbox != null && selectedMailbox.getFilterType().equals(filterType)) {
             // debo refrescar el selected?
             return ok(selectedMailbox);
@@ -906,7 +944,7 @@ public class UserCache {
         try {
             this.lock.lock();
 
-            selectedMailbox = this.selectedMailboxesByMailboxGid.get("m_"+mailbox.getId().toString());
+            selectedMailbox = this.selectedMailboxesByMailboxGid.get("m_" + mailbox.getId().toString());
 
             if (selectedMailbox != null && selectedMailbox.getFilterType().equals(filterType)) {
                 // debo refrescar el selected?
@@ -1031,7 +1069,7 @@ public class UserCache {
             selectedMailbox.setFilterType(filterType);
             selectedMailbox.setTotal(new AtomicLong(totalThreads));
             selectedMailbox.setUnseen(new AtomicLong(threadsUnSeen));
-            this.selectedMailboxesByMailboxGid.put("m_"+mailbox.getId().toString(), selectedMailbox);
+            this.selectedMailboxesByMailboxGid.put("m_" + mailbox.getId().toString(), selectedMailbox);
             return ok(selectedMailbox);
         } finally {
             if (this.lock.isLocked()) {
@@ -1049,8 +1087,8 @@ public class UserCache {
     }
 
 
-    public void clean(){
-        try{
+    public void clean() {
+        try {
             this.threads.clear();
             this.messageIdThreads.clear();
             this.mailboxThreads.clear();
@@ -1060,13 +1098,13 @@ public class UserCache {
             this.messages.clear();
             this.lastRefresh = null;
             this.lastSync = null;
-            this.cacheLoaded=false;
-        }finally {
+            this.cacheLoaded = false;
+        } finally {
         }
     }
 
     public UUID getId() {
         return id;
     }
-    
+
 }
